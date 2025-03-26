@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { toast } from 'react-toastify';
 import { courseService } from '../services/courseService';
 import Sidebar from '../components/Sidebar';
 import CourseCard from '../components/CourseCard';
 import Charts from '../components/Charts';
 import { generateMockCourses } from '../utils/generateMockCourses';
+import { SimulationContext } from '../App';
 
 const Home = ({ onEdit }) => {
   const [courses, setCourses] = useState([]);
@@ -13,6 +14,7 @@ const Home = ({ onEdit }) => {
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const { isSimulationRunning } = useContext(SimulationContext);
   const coursesPerPage = 6;
 
   const fetchCourses = async () => {
@@ -25,56 +27,60 @@ const Home = ({ onEdit }) => {
   useEffect(() => {
     fetchCourses();
 
-    // Simulate real-time updates
-    const updateInterval = setInterval(async () => {
-      // Randomly decide the type of update
-      const action = Math.random();
-      const currentCourses = await courseService.getCourses();
+    // Simulate real-time updates only if simulation is running
+    let updateInterval;
+    
+    if (isSimulationRunning) {
+      updateInterval = setInterval(async () => {
+        // Randomly decide the type of update
+        const action = Math.random();
+        const currentCourses = await courseService.getCourses();
 
-      if (action < 0.4) {
-        // Add 1-2 new courses (40% chance)
-        const numCoursesToAdd = Math.random() < 0.5 ? 1 : 2;
-        const newCourses = generateMockCourses(numCoursesToAdd);
-        for (const newCourse of newCourses) {
-          await courseService.addCourse(newCourse);
-          toast.info(`New course added: ${newCourse.title}`, { autoClose: 3000 });
-        }
-      } else if (action < 0.7 && currentCourses.length >= 3) {
-        // Delete 1-2 random courses (30% chance, if there are at least 3 courses)
-        const numCoursesToDelete = Math.random() < 0.5 ? 1 : 2;
-        const coursesToDelete = [];
-        for (let i = 0; i < numCoursesToDelete && currentCourses.length > 2; i++) {
-          const randomIndex = Math.floor(Math.random() * currentCourses.length);
-          const courseToDelete = currentCourses[randomIndex];
-          if (!coursesToDelete.includes(courseToDelete)) {
-            coursesToDelete.push(courseToDelete);
-            await courseService.deleteCourse(courseToDelete.id);
-            toast.warn(`Course deleted: ${courseToDelete.title}`, { autoClose: 3000 });
+        if (action < 0.4) {
+          // Add 1-2 new courses (40% chance)
+          const numCoursesToAdd = Math.random() < 0.5 ? 1 : 2;
+          const newCourses = generateMockCourses(numCoursesToAdd);
+          for (const newCourse of newCourses) {
+            await courseService.addCourse(newCourse);
+            toast.info(`New course added: ${newCourse.title}`, { autoClose: 3000 });
           }
-          currentCourses.splice(randomIndex, 1); // Remove from local array to avoid re-selecting
+        } else if (action < 0.7 && currentCourses.length >= 3) {
+          // Delete 1-2 random courses (30% chance, if there are at least 3 courses)
+          const numCoursesToDelete = Math.random() < 0.5 ? 1 : 2;
+          const coursesToDelete = [];
+          for (let i = 0; i < numCoursesToDelete && currentCourses.length > 2; i++) {
+            const randomIndex = Math.floor(Math.random() * currentCourses.length);
+            const courseToDelete = currentCourses[randomIndex];
+            if (!coursesToDelete.includes(courseToDelete)) {
+              coursesToDelete.push(courseToDelete);
+              await courseService.deleteCourse(courseToDelete.id);
+              toast.warn(`Course deleted: ${courseToDelete.title}`, { autoClose: 3000 });
+            }
+            currentCourses.splice(randomIndex, 1); // Remove from local array to avoid re-selecting
+          }
+        } else if (currentCourses.length > 0) {
+          // Update a random course (30% chance, if there are any courses)
+          const randomIndex = Math.floor(Math.random() * currentCourses.length);
+          const courseToUpdate = currentCourses[randomIndex];
+          const updatedCourse = {
+            ...courseToUpdate,
+            price: parseFloat((courseToUpdate.price + (Math.random() * 20 - 10)).toFixed(2)), // Adjust price by ±$10
+            lessons: courseToUpdate.lessons + Math.floor(Math.random() * 5 - 2), // Adjust lessons by ±2
+          };
+          await courseService.updateCourse(courseToUpdate.id, updatedCourse);
+          toast.info(`Course updated: ${courseToUpdate.title}`, { autoClose: 3000 });
         }
-      } else if (currentCourses.length > 0) {
-        // Update a random course (30% chance, if there are any courses)
-        const randomIndex = Math.floor(Math.random() * currentCourses.length);
-        const courseToUpdate = currentCourses[randomIndex];
-        const updatedCourse = {
-          ...courseToUpdate,
-          price: parseFloat((courseToUpdate.price + (Math.random() * 20 - 10)).toFixed(2)), // Adjust price by ±$10
-          lessons: courseToUpdate.lessons + Math.floor(Math.random() * 5 - 2), // Adjust lessons by ±2
-        };
-        await courseService.updateCourse(courseToUpdate.id, updatedCourse);
-        toast.info(`Course updated: ${courseToUpdate.title}`, { autoClose: 3000 });
-      }
-    }, 5000); // Update every 5 seconds
+      }, 10000); // Increased from 5000 to 10000 to make it slower
+    }
 
     const handleCourseUpdate = () => fetchCourses();
     window.addEventListener('courseUpdated', handleCourseUpdate);
 
     return () => {
-      clearInterval(updateInterval);
+      if (updateInterval) clearInterval(updateInterval);
       window.removeEventListener('courseUpdated', handleCourseUpdate);
     };
-  }, []); // Removed courses.length dependency to avoid re-running the effect unnecessarily
+  }, [isSimulationRunning]); // Added isSimulationRunning dependency
 
   const handleSearch = (term) => setSearch(term);
   const handleFilter = (cat) => setCategory(cat);
