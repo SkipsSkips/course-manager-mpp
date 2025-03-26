@@ -1,3 +1,5 @@
+import { defaultImageBase64 } from '../utils/defaultImage';
+
 export const coursesRepo = [
   // Existing Courses
   {
@@ -9,7 +11,8 @@ export const coursesRepo = [
     students: 245,
     rating: 4.8,
     price: 49.99,
-    category: "Programming"
+    category: "Programming",
+    image: defaultImageBase64
   },
   {
     id: 2,
@@ -20,7 +23,8 @@ export const coursesRepo = [
     students: 187,
     rating: 4.6,
     price: 39.99,
-    category: "Design"
+    category: "Design",
+    image: defaultImageBase64
   },
   // Marketing
   {
@@ -32,7 +36,8 @@ export const coursesRepo = [
     students: 320,
     rating: 4.7,
     price: 59.99,
-    category: "Marketing"
+    category: "Marketing",
+    image: defaultImageBase64
   },
   {
     id: 4,
@@ -43,7 +48,8 @@ export const coursesRepo = [
     students: 150,
     rating: 4.5,
     price: 39.99,
-    category: "Marketing"
+    category: "Marketing",
+    image: defaultImageBase64
   },
   {
     id: 5,
@@ -54,7 +60,8 @@ export const coursesRepo = [
     students: 280,
     rating: 4.8,
     price: 69.99,
-    category: "Marketing"
+    category: "Marketing",
+    image: defaultImageBase64
   },
   {
     id: 6,
@@ -65,7 +72,8 @@ export const coursesRepo = [
     students: 200,
     rating: 4.6,
     price: 79.99,
-    category: "Marketing"
+    category: "Marketing",
+    image: defaultImageBase64
   },
   {
     id: 7,
@@ -76,7 +84,8 @@ export const coursesRepo = [
     students: 180,
     rating: 4.4,
     price: 49.99,
-    category: "Marketing"
+    category: "Marketing",
+    image: defaultImageBase64
   },
   // Data Science
   {
@@ -88,7 +97,8 @@ export const coursesRepo = [
     students: 400,
     rating: 4.9,
     price: 89.99,
-    category: "Data Science"
+    category: "Data Science",
+    image: defaultImageBase64
   },
   {
     id: 9,
@@ -99,7 +109,8 @@ export const coursesRepo = [
     students: 350,
     rating: 4.7,
     price: 59.99,
-    category: "Data Science"
+    category: "Data Science",
+    image: defaultImageBase64
   },
   {
     id: 10,
@@ -110,7 +121,8 @@ export const coursesRepo = [
     students: 300,
     rating: 4.8,
     price: 79.99,
-    category: "Data Science"
+    category: "Data Science",
+    image: defaultImageBase64
   },
   {
     id: 11,
@@ -121,7 +133,8 @@ export const coursesRepo = [
     students: 220,
     rating: 4.6,
     price: 49.99,
-    category: "Data Science"
+    category: "Data Science",
+    image: defaultImageBase64
   },
   {
     id: 12,
@@ -132,7 +145,8 @@ export const coursesRepo = [
     students: 250,
     rating: 4.7,
     price: 99.99,
-    category: "Data Science"
+    category: "Data Science",
+    image: defaultImageBase64
   },
   // Photography
   {
@@ -144,7 +158,8 @@ export const coursesRepo = [
     students: 180,
     rating: 4.5,
     price: 39.99,
-    category: "Photography"
+    category: "Photography",
+    image: defaultImageBase64
   },
   {
     id: 14,
@@ -155,7 +170,8 @@ export const coursesRepo = [
     students: 200,
     rating: 4.7,
     price: 59.99,
-    category: "Photography"
+    category: "Photography",
+    image: defaultImageBase64
   },
   {
     id: 15,
@@ -166,7 +182,8 @@ export const coursesRepo = [
     students: 150,
     rating: 4.6,
     price: 49.99,
-    category: "Photography"
+    category: "Photography",
+    image: defaultImageBase64
   },
   {
     id: 16,
@@ -177,7 +194,8 @@ export const coursesRepo = [
     students: 170,
     rating: 4.8,
     price: 59.99,
-    category: "Photography"
+    category: "Photography",
+    image: defaultImageBase64
   },
   {
     id: 17,
@@ -188,7 +206,8 @@ export const coursesRepo = [
     students: 120,
     rating: 4.4,
     price: 29.99,
-    category: "Photography"
+    category: "Photography",
+    image: defaultImageBase64
   },
   // Health & Fitness
   {
@@ -200,7 +219,8 @@ export const coursesRepo = [
     students: 250,
     rating: 4.6,
     price: 39.99,
-    category: "Health & Fitness"
+    category: "Health & Fitness",
+    image: defaultImageBase64
   },
   {
     id: 19,
@@ -211,7 +231,8 @@ export const coursesRepo = [
     students: 200,
     rating: 4.7,
     price: 49.99,
-    category: "Health & Fitness"
+    category: "Health & Fitness",
+    image: defaultImageBase64
   },
   {
     id: 20,
@@ -222,7 +243,8 @@ export const coursesRepo = [
     students: 180,
     rating: 4.5,
     price: 39.99,
-    category: "Health & Fitness"
+    category: "Health & Fitness",
+    image: defaultImageBase64
   },
   {
     id: 21,
@@ -233,7 +255,8 @@ export const coursesRepo = [
     students: 220,
     rating: 4.8,
     price: 59.99,
-    category: "Health & Fitness"
+    category: "Health & Fitness",
+    image: defaultImageBase64
   },
   {
     id: 22,
@@ -244,7 +267,8 @@ export const coursesRepo = [
     students: 150,
     rating: 4.6,
     price: 29.99,
-    category: "Health & Fitness"
+    category: "Health & Fitness",
+    image: defaultImageBase64
   },
   // Music
   {
@@ -256,7 +280,8 @@ export const coursesRepo = [
     students: 200,
     rating: 4.5,
     price: 39.99,
-    category: "Music"
+    category: "Music",
+    image: defaultImageBase64
   },
   {
     id: 24,
@@ -267,7 +292,8 @@ export const coursesRepo = [
     students: 180,
     rating: 4.7,
     price: 49.99,
-    category: "Music"
+    category: "Music",
+    image: defaultImageBase64
   },
   {
     id: 25,
@@ -278,7 +304,8 @@ export const coursesRepo = [
     students: 150,
     rating: 4.6,
     price: 39.99,
-    category: "Music"
+    category: "Music",
+    image: defaultImageBase64
   },
   {
     id: 26,
@@ -289,7 +316,8 @@ export const coursesRepo = [
     students: 220,
     rating: 4.8,
     price: 79.99,
-    category: "Music"
+    category: "Music",
+    image: defaultImageBase64
   },
   {
     id: 27,
@@ -300,6 +328,7 @@ export const coursesRepo = [
     students: 170,
     rating: 4.5,
     price: 49.99,
-    category: "Music"
+    category: "Music",
+    image: defaultImageBase64
   }
 ];

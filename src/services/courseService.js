@@ -1,4 +1,5 @@
 import { coursesRepo } from '../data/coursesRepo';
+import { defaultImageBase64 } from '../utils/defaultImage';
 
 export const courseService = {
   getCourses: async () => {
@@ -15,6 +16,7 @@ export const courseService = {
       instructor: course.instructor || 'Unknown Instructor',
       students: course.students || 0,
       rating: course.rating || 0,
+      image: course.image || defaultImageBase64 // Use base64 default image
     };
     coursesRepo.push(newCourse);
     // Dispatch event to notify of data change
@@ -25,6 +27,11 @@ export const courseService = {
   updateCourse: async (id, updatedCourse) => {
     const index = coursesRepo.findIndex(course => course.id === id);
     if (index !== -1) {
+      // Preserve the image if not provided in update
+      if (!updatedCourse.image) {
+        updatedCourse.image = coursesRepo[index].image || defaultImageBase64;
+      }
+      
       coursesRepo[index] = { ...coursesRepo[index], ...updatedCourse };
       // Dispatch event to notify of data change
       window.dispatchEvent(new Event('courseUpdated'));

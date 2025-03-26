@@ -1,5 +1,6 @@
 import React from 'react';
 import { toast } from 'react-toastify';
+import { defaultImageBase64 } from '../utils/defaultImage';
 
 const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
   const handleDelete = async () => {
@@ -22,34 +23,59 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
     borderClass = 'border-l-4 border-yellow-500';
   }
 
+  // Use base64 encoded default image
+  const defaultImage = defaultImageBase64;
+
   return (
     <div
-      className={`bg-white p-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 border border-gray-100 ${borderClass}`}
+      className={`bg-white rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 border border-gray-100 overflow-hidden ${borderClass}`}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-2">{course.title}</h3>
-      <p className="text-sm text-gray-500 mb-1">by {course.instructor}</p>
-      <p className="text-sm text-gray-500 mb-1">{course.lessons} Lessons</p>
-      <p className="text-sm text-gray-500 mb-1">{course.students} Students</p>
-      <p className="text-sm text-gray-500 mb-2 flex items-center">
-        <span className="text-yellow-500 mr-1">★</span>
-        {course.rating.toFixed(1)} / 5
-      </p>
-      <p className="text-lg font-semibold text-gray-900 mb-4">
-        ${course.price.toFixed(2)}
-      </p>
-      <div className="flex space-x-2">
-        <button
-          onClick={() => onEdit(course)}
-          className="px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-200 transition-colors duration-200"
-        >
-          Edit
-        </button>
-        <button
-          onClick={handleDelete}
-          className="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 transition-colors duration-200"
-        >
-          Delete
-        </button>
+      {/* Image styled as a banner - taller height (h-48 instead of h-32) */}
+      <div className="relative w-full">
+        <img
+          src={course.image || defaultImage}
+          alt={course.title}
+          className="w-full h-48 object-cover" // Increased height from h-32 to h-48
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = defaultImage;
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4">
+          <h3 className="text-lg font-bold text-white mb-1">{course.title}</h3>
+          <p className="text-sm text-gray-200">by {course.instructor}</p>
+        </div>
+      </div>
+      
+      {/* Course details - rearranged to fit with taller image */}
+      <div className="p-5">
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-sm text-gray-500">{course.lessons} Lessons</p>
+          <p className="text-sm text-gray-500">{course.students} Students</p>
+        </div>
+        <p className="text-sm text-gray-500 mb-3 flex items-center">
+          <span className="text-yellow-500 mr-1">★</span>
+          {course.rating.toFixed(1)} / 5
+        </p>
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-lg font-semibold text-gray-900">
+            ${course.price.toFixed(2)}
+          </p>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => onEdit(course)}
+              className="px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-200 transition-colors duration-200"
+            >
+              Edit
+            </button>
+            <button
+              onClick={handleDelete}
+              className="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 transition-colors duration-200"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

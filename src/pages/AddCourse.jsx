@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { courseService } from '../services/courseService';
 
 const AddCourse = ({ onAdd, initialData }) => {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     title: '',
     category: '',
@@ -12,6 +13,7 @@ const AddCourse = ({ onAdd, initialData }) => {
     price: '',
     hours: '',
     minutes: '',
+    image: ''
   });
 
   useEffect(() => {
@@ -23,6 +25,7 @@ const AddCourse = ({ onAdd, initialData }) => {
         price: initialData.price.toString(),
         hours: '0',
         minutes: '0',
+        image: initialData.image || ''
       });
     }
   }, [initialData]);
@@ -32,6 +35,24 @@ const AddCourse = ({ onAdd, initialData }) => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, image: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleResetImage = () => {
+    setFormData({ ...formData, image: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const course = {
@@ -39,6 +60,7 @@ const AddCourse = ({ onAdd, initialData }) => {
       category: formData.category,
       lessons: parseInt(formData.lessons),
       price: parseFloat(formData.price),
+      image: formData.image || null
     };
 
     try {
@@ -179,14 +201,41 @@ const AddCourse = ({ onAdd, initialData }) => {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Media Upload
+            Course Image
           </label>
           <input
             type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            onChange={handleImageChange}
             className="w-full p-3 border border-gray-300 rounded-lg text-gray-500"
-            disabled
           />
-          <p className="mt-1 text-sm text-gray-500">Media upload placeholder</p>
+          {formData.image ? (
+            <div className="relative mt-2">
+              <img 
+                src={formData.image} 
+                alt="Course preview" 
+                className="w-full h-40 object-cover rounded-lg"
+              />
+              <button
+                type="button"
+                onClick={handleResetImage}
+                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                title="Remove image"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-40 bg-gray-100 rounded-lg mt-2">
+              <p className="text-gray-500">Default image will be used</p>
+            </div>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            {formData.image 
+              ? "Click the X to reset and use default image" 
+              : "If no image is uploaded, a default image will be used"}
+          </p>
         </div>
         <button
           type="submit"

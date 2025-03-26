@@ -35,14 +35,14 @@ class ErrorBoundary extends React.Component {
 
 // Create a context to share simulation state across components
 export const SimulationContext = React.createContext({
-  isSimulationRunning: true,
+  isSimulationRunning: false, // Changed default to false
   toggleSimulation: () => {}
 });
 
 function AppContent() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [editingCourse, setEditingCourse] = React.useState(null);
-  const [isSimulationRunning, setIsSimulationRunning] = React.useState(true);
+  const [isSimulationRunning, setIsSimulationRunning] = React.useState(false); // Changed default to false
   const navigate = useNavigate();
 
   const handleAdd = () => {

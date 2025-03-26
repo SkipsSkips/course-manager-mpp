@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { coursesRepo } from '../data/coursesRepo';
 
-const Sidebar = ({ onSearch, onFilter, onSort }) => {
+const Sidebar = ({ onSearch, onFilter, onSort, activeCategory = 'All' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [sortOption, setSortOption] = useState('');
@@ -90,7 +90,11 @@ const Sidebar = ({ onSearch, onFilter, onSort }) => {
                   onFilter(cat);
                   setIsOpen(false);
                 }}
-                className="w-full text-left p-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  activeCategory === cat 
+                    ? 'bg-blue-500 text-white font-medium' 
+                    : 'text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 {cat}
               </button>

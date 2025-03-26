@@ -137,7 +137,12 @@ const Home = ({ onEdit }) => {
 
   return (
     <div className="flex">
-      <Sidebar onSearch={handleSearch} onFilter={handleFilter} onSort={handleSort} />
+      <Sidebar 
+        onSearch={handleSearch} 
+        onFilter={handleFilter} 
+        onSort={handleSort}
+        activeCategory={category} 
+      />
       <div className="flex-1 md:ml-64 p-8 pt-24 min-h-screen">
         <h1 className="text-3xl font-bold text-gray-800 mb-8 sticky top-16 bg-gray-50 z-10">
           Course Listings
