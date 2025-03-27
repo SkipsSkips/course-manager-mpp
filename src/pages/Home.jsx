@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { courseService } from '../services/courseService';
 import Sidebar from '../components/Sidebar';
@@ -14,14 +15,22 @@ const Home = ({ onEdit }) => {
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const { isSimulationRunning } = useContext(SimulationContext);
+  // Fix: Destructure toggleSimulation from context
+  const { isSimulationRunning, toggleSimulation } = useContext(SimulationContext);
   const coursesPerPage = 6;
 
   const fetchCourses = async () => {
     setLoading(true);
-    const data = await courseService.getCourses();
-    setCourses(data);
-    setLoading(false);
+    try {
+      const data = await courseService.getCourses();
+      setCourses(data);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      toast.error('Failed to load courses');
+      setCourses([]); // Fallback
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -86,22 +95,26 @@ const Home = ({ onEdit }) => {
   const handleFilter = (cat) => setCategory(cat);
   const handleSort = (sortOption) => setSort(sortOption);
 
-  // Filter and sort courses
-  let filteredCourses = courses
-    .filter(course => course.title.toLowerCase().includes(search.toLowerCase()))
-    .filter(course => category === 'All' || course.category === category);
-
-  if (sort) {
-    filteredCourses.sort((a, b) => {
-      if (sort === 'price-asc') return a.price - b.price;
-      if (sort === 'price-desc') return b.price - a.price;
-      if (sort === 'lessons-asc') return a.lessons - b.lessons;
-      if (sort === 'lessons-desc') return b.lessons - a.lessons;
-      if (sort === 'rating-asc') return a.rating - b.rating;
-      if (sort === 'rating-desc') return b.rating - a.rating;
-      return 0;
-    });
-  }
+  // Use React.useMemo for expensive operations like filtering and sorting
+  const filteredCourses = React.useMemo(() => {
+    let result = courses
+      .filter(course => course.title.toLowerCase().includes(search.toLowerCase()))
+      .filter(course => category === 'All' || course.category === category);
+      
+    if (sort) {
+      return [...result].sort((a, b) => {
+        if (sort === 'price-asc') return a.price - b.price;
+        if (sort === 'price-desc') return b.price - a.price;
+        if (sort === 'lessons-asc') return a.lessons - b.lessons;
+        if (sort === 'lessons-desc') return b.lessons - a.lessons;
+        if (sort === 'rating-asc') return a.rating - b.rating;
+        if (sort === 'rating-desc') return b.rating - a.rating;
+        return 0;
+      });
+    }
+    
+    return result;
+  }, [courses, search, category, sort]);
 
   // Calculate price thresholds for highlighting based on filtered courses
   const getPriceHighlight = (coursePrice, allCourses) => {
@@ -144,48 +157,139 @@ const Home = ({ onEdit }) => {
   const currentCourses = filteredCourses.slice(indexOfFirstCourse, indexOfLastCourse);
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
-  if (loading) return <div className="p-8 text-center">Loading courses...</div>;
+  if (loading) return (
+    <div className="flex justify-center items-center h-screen">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600"></div>
+      <span className="ml-4 text-xl font-semibold text-gray-700">Loading courses...</span>
+    </div>
+  );
 
   return (
-    <div className="flex">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+      {/* Sidebar */}
       <Sidebar 
         onSearch={handleSearch} 
         onFilter={handleFilter} 
         onSort={handleSort}
         activeCategory={category} 
       />
-      <div className="flex-1 md:ml-64 p-8 pt-24 min-h-screen">
-        <h1 className="text-3xl font-bold text-gray-800 mb-8 sticky top-16 bg-gray-50 z-10">
-          Course Listings
-        </h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {currentCourses.map(course => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              onEdit={onEdit}
-              onDelete={async (id) => {
-                await courseService.deleteCourse(id);
-                fetchCourses();
-              }}
-              highlight={getPriceHighlight(course.price, filteredCourses)}
-            />
-          ))}
+      
+      {/* Main Content */}
+      <div className="flex-1 md:ml-64 px-4 py-20">
+        <div className="max-w-7xl mx-auto">
+          {/* Header with Actions - Redesigned to not look like a button */}
+          <header className="mb-8 flex flex-col-reverse md:flex-row md:items-center md:justify-between sticky top-16 bg-gray-50 pt-4 pb-4 z-10">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2 border-b-2 border-blue-600 inline-block pb-1">
+                Course Listings
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Showing {filteredCourses.length} courses {category !== 'All' ? `in ${category}` : ''}
+              </p>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <Link 
+                to="/add" 
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center shadow-md"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Course
+              </Link>
+              <button 
+                onClick={toggleSimulation} 
+                className={`px-4 py-2 rounded-lg flex items-center shadow-md ${
+                  isSimulationRunning 
+                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
+              >
+                {isSimulationRunning ? (
+                  <>
+                    <svg className="w-5 h-5 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Stop Simulation
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Start Simulation
+                  </>
+                )}
+              </button>
+            </div>
+          </header>
+        
+          {/* Show simulation status indicator if simulation is running */}
+          {isSimulationRunning && (
+            <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center z-50 animate-pulse">
+              <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Simulation Running
+            </div>
+          )}
+          
+          {/* Course Cards - Changed grid layout to make cards wider */}
+          {currentCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 mb-10">
+              {currentCourses.map(course => (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  onEdit={onEdit}
+                  onDelete={async (id) => {
+                    await courseService.deleteCourse(id);
+                    fetchCourses();
+                    toast.success('Course deleted successfully!');
+                  }}
+                  highlight={getPriceHighlight(course.price, filteredCourses)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg shadow">
+              <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">No courses found</h3>
+              <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria.</p>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-8 mb-10 flex justify-center">
+              <div className="flex space-x-2 shadow-md rounded-lg overflow-hidden">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-4 py-2 ${
+                      currentPage === page ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'
+                    } transition-colors border-r border-gray-200 last:border-r-0`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Charts Section */}
+          <div className="mt-16">
+            <h2 className="text-2xl font-bold text-gray-800 mb-8">Analytics</h2>
+            <Charts />
+          </div>
         </div>
-        <div className="mt-8 flex justify-center space-x-2">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-            <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`px-4 py-2 rounded-lg ${
-                currentPage === page ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
-              } transition-colors`}
-            >
-              {page}
-            </button>
-          ))}
-        </div>
-        <Charts />
       </div>
     </div>
   );

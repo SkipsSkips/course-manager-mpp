@@ -2,6 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
 body {
   font-family: 'Inter', sans-serif;
+  padding-top: 4rem; /* Add padding to body to account for fixed navbar */
+}
+
+/* Fix for sidebar positioning */
+html {
+  overflow-x: hidden;
+  height: 100%;
+}
+
+body {
+  height: 100%;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fix for course card animations */
+.course-card {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Fix for category badges */
+.category-badge {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Enhanced headings */
+h1.enhanced-heading {
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+h1.enhanced-heading:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 4px;
+  background-color: #3B82F6;
+  border-radius: 2px;
+}
+
+/* Sidebar content layout */
+.sidebar-content {
+  height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+/* Main content specific styles */
+.main-content {
+  min-height: calc(100vh - 4rem);
+}
+
+/* Enable flex-grow to push footer to bottom */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
