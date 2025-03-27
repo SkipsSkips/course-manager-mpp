@@ -226,11 +226,7 @@ const AddCourse = ({ onAdd, initialData }) => {
                 ✕
               </button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-40 bg-gray-100 rounded-lg mt-2">
-              <p className="text-gray-500">Default image will be used</p>
-            </div>
-          )}
+          ) : null}
           <p className="mt-1 text-sm text-gray-500">
             {formData.image 
               ? "Click the X to reset and use default image" 

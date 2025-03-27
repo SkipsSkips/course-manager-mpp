@@ -7,6 +7,7 @@ import CourseCard from '../components/CourseCard';
 import Charts from '../components/Charts';
 import { generateMockCourses } from '../utils/generateMockCourses';
 import { SimulationContext } from '../App';
+import { getCategoryColor } from '../utils/categoryColors';
 
 const Home = ({ onEdit }) => {
   const [courses, setCourses] = useState([]);
@@ -15,6 +16,7 @@ const Home = ({ onEdit }) => {
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
   // Fix: Destructure toggleSimulation from context
   const { isSimulationRunning, toggleSimulation } = useContext(SimulationContext);
   const coursesPerPage = 6;
@@ -94,12 +96,16 @@ const Home = ({ onEdit }) => {
   const handleSearch = (term) => setSearch(term);
   const handleFilter = (cat) => setCategory(cat);
   const handleSort = (sortOption) => setSort(sortOption);
+  const handlePriceRangeChange = (range) => {
+    setPriceRange(range);
+  };
 
   // Use React.useMemo for expensive operations like filtering and sorting
   const filteredCourses = React.useMemo(() => {
     let result = courses
       .filter(course => course.title.toLowerCase().includes(search.toLowerCase()))
-      .filter(course => category === 'All' || course.category === category);
+      .filter(course => category === 'All' || course.category === category)
+      .filter(course => course.price >= priceRange.min && course.price <= priceRange.max);
       
     if (sort) {
       return [...result].sort((a, b) => {
@@ -114,7 +120,7 @@ const Home = ({ onEdit }) => {
     }
     
     return result;
-  }, [courses, search, category, sort]);
+  }, [courses, search, category, sort, priceRange]);
 
   // Calculate price thresholds for highlighting based on filtered courses
   const getPriceHighlight = (coursePrice, allCourses) => {
@@ -171,14 +177,15 @@ const Home = ({ onEdit }) => {
         onSearch={handleSearch} 
         onFilter={handleFilter} 
         onSort={handleSort}
+        onPriceRangeChange={handlePriceRangeChange}
         activeCategory={category} 
       />
       
       {/* Main Content */}
       <div className="flex-1 md:ml-64 px-4 py-20">
         <div className="max-w-7xl mx-auto">
-          {/* Header with Actions - Redesigned to not look like a button */}
-          <header className="mb-8 flex flex-col-reverse md:flex-row md:items-center md:justify-between sticky top-16 bg-gray-50 pt-4 pb-4 z-10">
+          {/* Header with Actions - Remove sticky positioning */}
+          <header className="mb-8 flex flex-col-reverse md:flex-row md:items-center md:justify-between bg-gray-50 pt-4 pb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2 border-b-2 border-blue-600 inline-block pb-1">
                 Course Listings
@@ -238,9 +245,9 @@ const Home = ({ onEdit }) => {
             </div>
           )}
           
-          {/* Course Cards - Changed grid layout to make cards wider */}
+          {/* Course Cards with enhanced grid layout */}
           {currentCourses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
               {currentCourses.map(course => (
                 <CourseCard
                   key={course.id}
@@ -252,6 +259,7 @@ const Home = ({ onEdit }) => {
                     toast.success('Course deleted successfully!');
                   }}
                   highlight={getPriceHighlight(course.price, filteredCourses)}
+                  categoryColor={getCategoryColor(course.category)}
                 />
               ))}
             </div>
