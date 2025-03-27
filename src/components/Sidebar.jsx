@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { coursesRepo } from '../data/coursesRepo';
+import { getCategoryIcon } from '../utils/categoryIcons';
 
 const Sidebar = ({ onSearch, onFilter, onSort, activeCategory = 'All' }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -90,12 +91,13 @@ const Sidebar = ({ onSearch, onFilter, onSort, activeCategory = 'All' }) => {
                   onFilter(cat);
                   setIsOpen(false);
                 }}
-                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                className={`w-full text-left p-2 rounded-lg transition-colors flex items-center ${
                   activeCategory === cat 
                     ? 'bg-blue-500 text-white font-medium' 
                     : 'text-gray-700 hover:bg-gray-200'
                 }`}
               >
+                <span className="mr-2">{cat !== 'All' ? getCategoryIcon(cat) : '🔍'}</span>
                 {cat}
               </button>
             </li>

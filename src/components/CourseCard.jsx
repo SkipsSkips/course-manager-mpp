@@ -30,7 +30,12 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
     <div
       className={`bg-white rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 border border-gray-100 overflow-hidden ${borderClass}`}
     >
-      {/* Image styled as a banner - taller height (h-48 instead of h-32) */}
+      {/* Add a category badge */}
+      <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+        {course.category}
+      </div>
+      
+      {/* Image styled as a banner - with loading state */}
       <div className="relative w-full">
         <img
           src={course.image || defaultImage}
@@ -40,6 +45,7 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
             e.target.onerror = null;
             e.target.src = defaultImage;
           }}
+          loading="lazy" // Add lazy loading for images
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4">
           <h3 className="text-lg font-bold text-white mb-1">{course.title}</h3>
@@ -65,12 +71,14 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
             <button
               onClick={() => onEdit(course)}
               className="px-3 py-1.5 bg-blue-100 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-200 transition-colors duration-200"
+              title="Edit this course" // Add tooltip
             >
               Edit
             </button>
             <button
               onClick={handleDelete}
               className="px-3 py-1.5 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 transition-colors duration-200"
+              title="Delete this course" // Add tooltip
             >
               Delete
             </button>

@@ -108,7 +108,14 @@ function AppContent() {
       <div className="min-h-screen bg-gray-50">
         <nav className="fixed top-0 left-0 right-0 bg-white p-4 shadow-md z-40">
           <div className="container mx-auto flex items-center justify-between">
-            <Link to="/" className="text-2xl font-bold text-gray-800">Course Manager</Link>
+            <Link to="/" className="flex items-center">
+              <img 
+                src={`${process.env.PUBLIC_URL}/app_logo.png`} 
+                alt="App Logo" 
+                className="h-8 w-auto mr-3"
+              />
+              <span className="text-2xl font-bold text-gray-800">Course Manager</span>
+            </Link>
             <div className="flex items-center space-x-4">
               <button
                 onClick={toggleSimulation}

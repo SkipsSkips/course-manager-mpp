@@ -112,10 +112,16 @@ const Home = ({ onEdit }) => {
     const maxPrice = Math.max(...prices);
     const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length;
 
-    // Define thresholds for "average" (within 30% of the average price)
+    // Define thresholds for price ranges
     const avgThreshold = 0.3 * avgPrice;
     const lowerAvg = avgPrice - avgThreshold;
     const upperAvg = avgPrice + avgThreshold;
+    
+    // Low price range (lower 25% of price range)
+    const lowThreshold = minPrice + (maxPrice - minPrice) * 0.25;
+    
+    // High price range (upper 25% of price range)
+    const highThreshold = maxPrice - (maxPrice - minPrice) * 0.25;
 
     if (coursePrice === minPrice) {
       return 'least-expensive'; // Green border
@@ -123,8 +129,13 @@ const Home = ({ onEdit }) => {
       return 'most-expensive'; // Red border
     } else if (coursePrice >= lowerAvg && coursePrice <= upperAvg) {
       return 'average-priced'; // Yellow border
+    } else if (coursePrice < lowThreshold) {
+      return 'least-expensive'; // Green border for low-priced courses
+    } else if (coursePrice > highThreshold) {
+      return 'most-expensive'; // Red border for high-priced courses
+    } else {
+      return 'average-priced'; // Yellow border for everything else
     }
-    return '';
   };
 
   // Pagination
