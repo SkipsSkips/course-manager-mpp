@@ -1,0 +1,368 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+  padding-top: 4rem; /* Add padding to body to account for fixed navbar */
+}
+
+/* Fix for sidebar positioning */
+html {
+  overflow-x: hidden;
+  height: 100%;
+}
+
+body {
+  height: 100%;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fix for course card animations */
+.course-card {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  transition: all 0.3s;
+}
+
+/* Fix for category badges */
+.category-badge {
+  transform: translateZ(0);
+  will-change: transform;
+  transition: all 0.3s;
+}
+
+.category-badge:hover {
+  transform: scale(1.1) rotate(3deg);
+}
+
+/* Enhanced headings */
+h1.enhanced-heading {
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+h1.enhanced-heading:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 4px;
+  background-color: #3B82F6;
+  border-radius: 2px;
+}
+
+/* Sidebar content layout */
+.sidebar-content {
+  height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+/* Main content specific styles */
+.main-content {
+  min-height: calc(100vh - 4rem);
+}
+
+/* Enable flex-grow to push footer to bottom */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Improved slider styles for cross-browser compatibility */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 20px; /* Increase tap/click area */
+  margin: 0;
+  padding: 0;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #3B82F6;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #3B82F6;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: scale(1.1);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 0; /* Make track invisible */
+  cursor: pointer;
+  background: transparent;
+}
+
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 0; /* Make track invisible */
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Improved range slider styles */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 30px; /* Increase height for better touch target */
+  margin: 0;
+  opacity: 0.01; /* Almost invisible but still interactive */
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent; /* Make invisible but still interactive */
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent; /* Make invisible but still interactive */
+  border: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Enhanced range slider styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  background: transparent;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #3B82F6;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-top: -9px; /* offset from track */
+  position: relative;
+  z-index: 2;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #3B82F6;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 2;
+}
+
+/* Hide the default track but allow interaction */
+input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: transparent;
+  border-radius: 5px;
+}
+
+input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
+  background: transparent;
+  border-radius: 5px;
+}
+
+/* Improved dual thumb range slider styling */
+.slider-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: 20px;
+  height: 20px;
+}
+
+.slider-thumb::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: white;
+  border: 2px solid #3B82F6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.thumb {
+  position: absolute;
+  width: 40px; /* Make it wider for easier grabbing */
+  height: 40px;
+  opacity: 0; /* Hide the actual input */
+  z-index: 4;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+/* Make sure thumb inputs are fully visible to click */
+input[type="range"].thumb {
+  -webkit-appearance: none;
+  pointer-events: all;
+  background: transparent;
+}
+
+input[type="range"].thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent; /* Make thumb invisible but clickable */
+  cursor: pointer;
+}
+
+input[type="range"].thumb::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent; /* Make thumb invisible but clickable */
+  cursor: pointer;
+  border: none;
+}
+
+/* 3D hover effect for course cards */
+.hover-3d {
+  transition: transform 0.3s;
+}
+
+.hover-3d:hover {
+  transform: perspective(1000px) rotateX(2deg) rotateY(2deg) scale(1.05);
+}
+
+/* Fancy underline animation for search input */
+.fancy-underline {
+  position: relative;
+}
+
+.fancy-underline::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  background-color: #3B82F6;
+  transform: scaleX(0);
+  transform-origin: bottom right;
+  transition: transform 0.3s;
+}
+
+.fancy-underline:focus-within::after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
+
+/* Price animation for cards */
+.price-animate {
+  transition: all 0.3s ease;
+}
+
+.price-animate:hover {
+  transform: scale(1.1);
+}
+
+/* Fix for range sliders to work properly */
+input[type="range"] {
+  pointer-events: all !important;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  opacity: 0; /* Make invisible but interactive */
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px; /* Make wider for better touch target */
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.2); /* Blue with transparency */
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 30px; /* Make wider for better touch target */
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.2); /* Blue with transparency */
+  cursor: pointer;
+}
