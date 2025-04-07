@@ -49,44 +49,59 @@ const offlineService = {
     }
   },
 
-  // Check if the server is available
+  // Improved server availability checker
   async checkServerAvailability() {
-    if (!navigator.onLine) {
-      this.isServerAvailable = false;
-      this.notifyListeners();
-      return false;
-    }
-    
     try {
-      const response = await fetch(SERVER_CHECK_URL, {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+      
+      const response = await fetch('http://localhost:5000/api/debug/courses', {
         method: 'GET',
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
         },
-        cache: 'no-store'
+        signal: controller.signal
       });
       
-      const previousServerStatus = this.isServerAvailable;
-      this.isServerAvailable = response.ok;
+      clearTimeout(timeoutId);
       
-      if (previousServerStatus !== this.isServerAvailable) {
-        console.log(`Server status changed: ${this.isServerAvailable ? 'Available' : 'Unavailable'}`);
-        
-        if (this.isServerAvailable) {
-          // Server is now available, sync operations
-          this.syncOfflineOperations();
-        }
-        
+      const isAvailable = response.ok;
+      if (this.isServerAvailable !== isAvailable) {
+        this.isServerAvailable = isAvailable;
         this.notifyListeners();
       }
       
-      return this.isServerAvailable;
+      return isAvailable;
     } catch (error) {
-      console.log('Server check failed:', error);
-      this.isServerAvailable = false;
-      this.notifyListeners();
+      // If we get here, the server is likely down
+      if (this.isServerAvailable !== false) {
+        this.isServerAvailable = false;
+        this.notifyListeners();
+      }
       return false;
+    }
+  },
+
+  // Reduce polling interval and improve offline detection
+  startPolling() {
+    this.stopPolling();
+    
+    // Check immediately
+    this.checkServerAvailability();
+    
+    // Set up shorter polling interval (3 seconds)
+    this.checkServerInterval = setInterval(this.checkServerAvailability.bind(this), 3000);
+    
+    // Listen for browser online/offline events
+    window.addEventListener('online', this.handleOnlineStatusChange.bind(this));
+    window.addEventListener('offline', this.handleOnlineStatusChange.bind(this));
+  },
+
+  // Stop polling
+  stopPolling() {
+    if (this.checkServerInterval) {
+      clearInterval(this.checkServerInterval);
+      this.checkServerInterval = null;
     }
   },
 

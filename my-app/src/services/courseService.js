@@ -222,15 +222,26 @@ export const courseService = {
       let courses = [];
       
       if (cachedData) {
-        courses = JSON.parse(cachedData);
+        try {
+          courses = JSON.parse(cachedData);
+          if (!Array.isArray(courses)) {
+            console.error('Cached courses is not an array:', courses);
+            courses = SAMPLE_COURSES;
+          }
+        } catch (e) {
+          console.error('Error parsing cached courses:', e);
+          courses = SAMPLE_COURSES;
+        }
       } else {
         // If no cached data exists, use sample courses
-        // Import data from the API model to ensure we have all 100 courses
         courses = SAMPLE_COURSES;
         
         // Store the sample courses if nothing exists
         safelyStoreInLocalStorage('cached_courses', courses);
       }
+      
+      // Make a copy of courses to avoid reference issues
+      courses = JSON.parse(JSON.stringify(courses));
       
       // Apply pending operations to local data
       const operations = offlineService.getOfflineOperations();
@@ -315,8 +326,8 @@ export const courseService = {
         const startIndex = (page - 1) * limit;
         const endIndex = Math.min(startIndex + limit, courses.length);
         
-        // Get paginated slice of data
-        const paginatedCourses = courses.slice(startIndex, endIndex);
+        // Get paginated slice of data - make absolutely sure courses is an array
+        const paginatedCourses = Array.isArray(courses) ? courses.slice(startIndex, endIndex) : [];
         
         // Prepare pagination metadata
         const pagination = {
@@ -529,20 +540,32 @@ export const courseService = {
         const cachedData = localStorage.getItem('cached_courses');
         let courses = cachedData ? JSON.parse(cachedData) : SAMPLE_COURSES;
         
-        // Find and remove course
-        const index = courses.findIndex(c => c.id === id);
+        // Handle both string and number IDs for comparison
+        // Convert to strings for safer comparison
+        const courseId = String(id);
+        const index = courses.findIndex(c => String(c.id) === courseId);
+        
         if (index === -1) {
-          throw new Error('Course not found');
+          console.error(`Course with ID ${id} not found in local storage.`);
+          console.log('Available courses:', courses.map(c => c.id));
+          throw new Error(`Course not found with ID: ${id}`);
         }
         
+        // Store deleted course info before removing
+        const deletedCourse = courses[index];
         courses.splice(index, 1);
         
         // Save back to storage
         safelyStoreInLocalStorage('cached_courses', courses);
         
-        // Notify UI
+        // Notify UI - include more details to help with rendering updates
         window.dispatchEvent(new CustomEvent('courseUpdated', {
-          detail: { action: 'delete', id }
+          detail: { 
+            action: 'delete', 
+            id,
+            courseId: courseId, // Include both formats to be safe
+            message: `Course deleted: ${deletedCourse.title || 'Unknown'}`
+          }
         }));
         
         return true;

@@ -108,8 +108,20 @@ const Home = ({ onEdit }) => {
   useEffect(() => {
     const handleCourseUpdate = (e) => {
       console.log("Course updated event received", e.detail || {});
+      
+      if (e.detail?.action === 'delete') {
+        // For deletions, immediately update the courses list to remove the deleted item
+        // This makes the UI more responsive without waiting for a refresh
+        setCourses(prevCourses => 
+          prevCourses.filter(course => 
+            course.id !== e.detail.id && 
+            String(course.id) !== String(e.detail.id)
+          )
+        );
+      }
+      
+      // For all updates, increment the counter to trigger a full refresh on next render cycle
       forceRefreshCounter.current += 1;
-      // Don't call fetchCourses directly, just update the counter to trigger a re-render
     };
 
     window.addEventListener('courseUpdated', handleCourseUpdate);
@@ -267,10 +279,22 @@ const Home = ({ onEdit }) => {
                   course={course}
                   onEdit={onEdit}
                   onDelete={async (id) => {
-                    await courseService.deleteCourse(id);
-                    forceRefreshCounter.current += 1;
-                    setCurrentPage(currentPage); // Force a re-render
-                    toast.success('Course deleted successfully!');
+                    try {
+                      // Try the operation
+                      await courseService.deleteCourse(id);
+                      
+                      // Immediately update the local UI state by filtering out the deleted course
+                      setCourses(prevCourses => prevCourses.filter(course => course.id !== id));
+                      
+                      // Force a data refresh on the next render cycle
+                      forceRefreshCounter.current += 1;
+                      
+                      // Show success message
+                      toast.success('Course deleted successfully!');
+                    } catch (error) {
+                      console.error("Error deleting course:", error);
+                      toast.error(`Failed to delete course: ${error.message}`);
+                    }
                   }}
                   highlight={getPriceHighlight(course.price, currentCourses)}
                   categoryColor={getCategoryColor(course.category)}
