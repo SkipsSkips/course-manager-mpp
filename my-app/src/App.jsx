@@ -13,6 +13,7 @@ import { courseService } from './services/courseService';
 import { generateMockCourses } from './utils/generateMockCourses';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import ConnectionStatus from './components/ConnectionStatus';
+import BackendToggle from './components/BackendToggle';
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -180,6 +181,7 @@ function AppContent() {
           pauseOnHover
           theme="light"
         />
+        <BackendToggle />
         <ConnectionStatus />
       </div>
     </SimulationContext.Provider>

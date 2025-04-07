@@ -20,6 +20,7 @@ const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategor
 
   const isMounted = useRef(true);
   const categoriesRef = useRef(defaultCategories);
+  const initialPriceRangeSetRef = useRef(false);
   
   // Fetch categories and update if API returns successfully
   useEffect(() => {
@@ -37,15 +38,20 @@ const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategor
             categoriesRef.current = uniqueCategories;
           }
           
-          // Calculate price range
-          if (courses.length > 0) {
+          // Calculate price range ONCE
+          if (courses.length > 0 && !initialPriceRangeSetRef.current) {
             const prices = courses.map(course => course.price);
             const min = Math.floor(Math.min(...prices));
             const max = Math.ceil(Math.max(...prices));
+            
+            // Update state safely - outside of render
             setMinPrice(min);
             setMaxPrice(max);
             setPriceRange({ min, max });
-            onPriceRangeChange({ min, max });
+            initialPriceRangeSetRef.current = true;
+            
+            // Don't call the prop function during render!
+            // Instead use an effect to notify the parent
           }
         }
       } catch (error) {
@@ -61,6 +67,19 @@ const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategor
     };
   }, []); // Empty dependency array = only on mount
   
+  // Separate effect to notify parent of price range changes
+  useEffect(() => {
+    // Only notify parent when values actually change and are valid
+    if (initialPriceRangeSetRef.current && priceRange.min >= 0 && priceRange.max > priceRange.min) {
+      // Use a debounce or throttle approach to avoid too many updates
+      const handler = setTimeout(() => {
+        onPriceRangeChange(priceRange.min, priceRange.max);
+      }, 300); // Wait 300ms before calling parent function
+      
+      return () => clearTimeout(handler);
+    }
+  }, [priceRange, onPriceRangeChange, initialPriceRangeSetRef]);
+
   // Only listen for specific "category update" events, not all course updates
   useEffect(() => {
     const handleCategoryUpdate = (e) => {
@@ -100,20 +119,18 @@ const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategor
   // Enhanced handlers for slider thumbs
   const handleMinRangeChange = (e) => {
     const newMin = Math.min(Number(e.target.value), priceRange.max - 1);
-    setPriceRange(prev => {
-      const newRange = { ...prev, min: newMin };
-      onPriceRangeChange(newRange);
-      return newRange;
-    });
+    setPriceRange(prev => ({
+      ...prev,
+      min: newMin
+    }));
   };
   
   const handleMaxRangeChange = (e) => {
     const newMax = Math.max(Number(e.target.value), priceRange.min + 1);
-    setPriceRange(prev => {
-      const newRange = { ...prev, max: newMax };
-      onPriceRangeChange(newRange);
-      return newRange;
-    });
+    setPriceRange(prev => ({
+      ...prev,
+      max: newMax
+    }));
   };
 
   // Improved price range slider implementation

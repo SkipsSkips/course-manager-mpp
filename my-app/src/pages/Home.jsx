@@ -5,7 +5,6 @@ import { courseService } from '../services/courseService';
 import Sidebar from '../components/Sidebar';
 import CourseCard from '../components/CourseCard';
 import Charts from '../components/Charts';
-import { generateMockCourses } from '../utils/generateMockCourses';
 import { SimulationContext } from '../App';
 import { getCategoryColor } from '../utils/categoryColors';
 import { PRICE_THRESHOLDS } from '../utils/constants';
@@ -48,11 +47,6 @@ const Home = ({ onEdit }) => {
     return null;
   };
 
-  const debugCourses = async () => {
-    const debug = await courseService.debugCourses();
-    console.log("DEBUG API Response:", debug);
-  };
-
   const fetchCourses = useCallback(async () => {
     console.log("Fetching courses with refresh counter:", forceRefreshCounter.current);
     setLoading(true);
@@ -70,26 +64,35 @@ const Home = ({ onEdit }) => {
         timestamp: Date.now()
       };
 
-      const data = await courseService.getCourses(filters);
+      const response = await courseService.getCourses(filters);
 
-      if (data && data.courses && Array.isArray(data.courses)) {
-        console.log(`Received ${data.courses.length} courses from API:`, data.courses.map(c => c.id));
-        setCourses(data.courses);
+      if (response && response.courses && Array.isArray(response.courses)) {
+        console.log(`Received ${response.courses.length} courses from API:`, response.courses.map(c => c.id));
+        setCourses(response.courses);
         
         // Update pagination info
-        if (data.pagination) {
-          setTotalItems(data.pagination.totalItems);
-          setTotalPages(data.pagination.totalPages);
+        if (response.pagination) {
+          setTotalItems(response.pagination.totalItems);
+          setTotalPages(response.pagination.totalPages);
+          console.log(`Setting total pages: ${response.pagination.totalPages}, total items: ${response.pagination.totalItems}`);
+        } else {
+          // If no pagination info, assume all courses are returned
+          setTotalItems(response.courses.length);
+          setTotalPages(Math.ceil(response.courses.length / itemsPerPage));
         }
       } else {
-        console.error("Invalid data format returned:", data);
+        console.error("Invalid data format returned:", response);
         toast.error("Error: Invalid data returned from server");
         setCourses([]);
+        setTotalItems(0);
+        setTotalPages(1);
       }
     } catch (error) {
       console.error('Error fetching courses:', error);
       toast.error(`Failed to load courses: ${error.message}`);
       setCourses([]);
+      setTotalItems(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
@@ -152,10 +155,16 @@ const Home = ({ onEdit }) => {
     setCurrentPage(1);
   };
 
-  const handlePriceRangeChange = (min, max) => {
-    setPriceRange({ min, max });
-    setCurrentPage(1);
-  };
+  const handlePriceRangeChange = useCallback((min, max) => {
+    setPriceRange(prevState => {
+      // Only update if values have changed to avoid infinite loops
+      if (prevState.min !== Number(min) || prevState.max !== Number(max)) {
+        return { min: Number(min), max: Number(max) };
+      }
+      return prevState;
+    });
+    setCurrentPage(1); // Reset to first page when changing filters
+  }, []);
 
   const handleItemsPerPageChange = (newLimit) => {
     setItemsPerPage(newLimit);
@@ -163,9 +172,7 @@ const Home = ({ onEdit }) => {
 
   const filteredCourses = courses;
 
-  const indexOfLastCourse = currentPage * coursesPerPage;
-  const indexOfFirstCourse = indexOfLastCourse - coursesPerPage;
-  const currentCourses = filteredCourses.slice(indexOfFirstCourse, indexOfLastCourse);
+  const currentCourses = courses;
 
   if (loading) return (
     <div className="flex justify-center items-center h-screen">
@@ -274,7 +281,7 @@ const Home = ({ onEdit }) => {
                     fetchCourses();
                     toast.success('Course deleted successfully!');
                   }}
-                  highlight={getPriceHighlight(course.price, filteredCourses)}
+                  highlight={getPriceHighlight(course.price, currentCourses)}
                   categoryColor={getCategoryColor(course.category)}
                 />
               ))}
@@ -300,7 +307,7 @@ const Home = ({ onEdit }) => {
               <div className="flex items-center space-x-2">
                 <span className="text-gray-600 mr-2">Items per page:</span>
                 <div className="flex border border-gray-300 rounded overflow-hidden">
-                  {[10, 40, 100].map(limit => (
+                  {[10, 20, 50, 100].map(limit => (
                     <button
                       key={limit}
                       onClick={() => handleItemsPerPageChange(limit)}

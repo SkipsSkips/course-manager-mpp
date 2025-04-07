@@ -1,5 +1,8 @@
 const express = require('express');
 const path = require('path');
+const compression = require('compression');
+const cors = require('cors');
+const helmet = require('helmet');
 const { courseRoutes } = require('./api/routes/courseRoutes');
 const { chartRoutes } = require('./api/routes/chartRoutes');
 const { simulationRoutes } = require('./api/routes/simulationRoutes');
@@ -9,7 +12,19 @@ const { coursesData } = require('./api/models/courseModel');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for development
+  crossOriginEmbedderPolicy: false, // Allow embedding
+}));
+
+// Enable CORS
+app.use(cors());
+
+// Compress responses
+app.use(compression());
+
+// Parse JSON with increased limit
 app.use(express.json({ limit: '10mb' })); // For handling JSON and large images
 app.use(express.urlencoded({ extended: true }));
 
@@ -35,19 +50,20 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/charts', chartRoutes);
 app.use('/api/simulation', simulationRoutes);
 
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'my-app/build')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'my-app', 'build', 'index.html'));
-  });
-}
-
 // Error handling middleware
 app.use(errorHandler);
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Serve static assets if in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'my-app/build')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'my-app/build/index.html'));
+  });
+}
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 
 // For graceful shutdown
 process.on('SIGINT', () => {

@@ -1,17 +1,159 @@
 import offlineService from './offlineService';
 
+// Helper function to safely store in localStorage with image stripping
+const safelyStoreInLocalStorage = (key, data) => {
+  try {
+    // If the data is an array of courses, strip out large image data before storing
+    if (Array.isArray(data)) {
+      // Create a copy without large images
+      const strippedData = data.map(course => {
+        // Keep a small placeholder instead of the full base64 image
+        const strippedCourse = {
+          ...course,
+          image: course.image ? 'IMAGE_PLACEHOLDER' : null
+        };
+        return strippedCourse;
+      });
+      
+      localStorage.setItem(key, JSON.stringify(strippedData));
+      return true;
+    } else {
+      localStorage.setItem(key, JSON.stringify(data));
+      return true;
+    }
+  } catch (error) {
+    console.warn('Failed to store data in localStorage:', error.message);
+    return false;
+  }
+};
+
+// Configuration for API connection
+const API_CONFIG = {
+  // Set to true to use the backend, false to use local data
+  useRemoteBackend: false,
+  // Default backend URL (localhost for development)
+  baseUrl: 'http://localhost:5000',
+};
+
+// Sample data to use when working locally
+const SAMPLE_COURSES = [
+  {
+    id: 1,
+    title: "Introduction to Web Development",
+    instructor: "John Doe",
+    lessons: 12,
+    duration: "4h 30m",
+    students: 245,
+    rating: 4.8,
+    price: 49.99,
+    category: "Programming",
+    image: null
+  },
+  {
+    id: 2,
+    title: "Advanced JavaScript Techniques",
+    instructor: "Emily Johnson",
+    lessons: 15,
+    duration: "6h 15m",
+    students: 310,
+    rating: 4.9,
+    price: 69.99,
+    category: "Programming",
+    image: null
+  },
+  {
+    id: 3,
+    title: "UI/UX Design Basics",
+    instructor: "Jane Smith",
+    lessons: 8,
+    duration: "3h 15m",
+    students: 187,
+    rating: 4.6,
+    price: 39.99,
+    category: "Design",
+    image: null
+  },
+  {
+    id: 4,
+    title: "Digital Marketing 101",
+    instructor: "Sarah Johnson",
+    lessons: 10,
+    duration: "3h 0m",
+    students: 320,
+    rating: 4.7,
+    price: 59.99,
+    category: "Marketing",
+    image: null
+  }
+];
+
+// Initialize local storage with sample data if empty
+const initializeLocalData = () => {
+  if (!localStorage.getItem('cached_courses')) {
+    safelyStoreInLocalStorage('cached_courses', SAMPLE_COURSES);
+  }
+};
+
+// Run initialization
+initializeLocalData();
+
 export const courseService = {
   getCourses: async (filters = {}) => {
     try {
       // Convert filters object to query string
       const queryParams = new URLSearchParams();
       
-      // Add all filters to the query string
+      // Add all filters to the query string - properly convert objects to primitive values
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined) {
-          queryParams.append(key, value);
+          // Special handling for priceMin and priceMax to make sure they're numbers
+          if (key === 'priceMin' || key === 'priceMax') {
+            // Make sure it's a number before adding to query
+            if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
+              queryParams.append(key, Number(value));
+            }
+          } 
+          // Handle object values - prevent [object Object] in URL
+          else if (typeof value === 'object' && value !== null) {
+            if (key === 'timestamp' || key === 'forceCacheKey') {
+              queryParams.append(key, value.toString());
+            }
+            // Skip objects that shouldn't be in the URL
+          } 
+          // Normal case - add the value directly
+          else {
+            queryParams.append(key, value);
+          }
         }
       });
+      
+      // Use local data if not using remote backend or server unavailable
+      if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
+        console.log('Using local data for courses');
+        const allCourses = courseService.getOfflineCourses(filters);
+        
+        // Apply pagination manually for local data
+        const page = parseInt(filters.page) || 1;
+        const limit = parseInt(filters.limit) || allCourses.length;
+        const startIndex = (page - 1) * limit;
+        const endIndex = Math.min(startIndex + limit, allCourses.length);
+        
+        const paginatedCourses = allCourses.slice(startIndex, endIndex);
+        
+        // Format response like the API would
+        const pagination = {
+          page: page,
+          limit: limit,
+          totalItems: allCourses.length,
+          totalPages: Math.ceil(allCourses.length / limit),
+          hasNextPage: endIndex < allCourses.length,
+          hasPrevPage: page > 1
+        };
+        
+        console.log(`Paginated ${allCourses.length} courses to ${paginatedCourses.length} courses. Page ${page}/${Math.ceil(allCourses.length / limit)}`);
+        
+        return { courses: paginatedCourses, pagination };
+      }
       
       // ALWAYS include a random number to bust cache
       queryParams.append('_nocache', Math.random());
@@ -36,7 +178,7 @@ export const courseService = {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch courses');
+        throw new Error(`Failed to fetch courses: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
@@ -45,13 +187,18 @@ export const courseService = {
       const courses = data.courses || data;
       const pagination = data.pagination || null;
       
+      if (!Array.isArray(courses)) {
+        console.error('Received non-array courses data:', courses);
+        return { courses: [], pagination: null };
+      }
+      
       console.log(`Received ${courses.length} courses from API with IDs:`, courses.map(c => c.id));
       
-      // Store courses in localStorage for offline use
-      localStorage.setItem('cached_courses', JSON.stringify(courses));
+      // Store courses in localStorage with image stripping to reduce size
+      safelyStoreInLocalStorage('cached_courses', courses);
       
       // Return the data in a format compatible with the rest of the application
-      return data;
+      return { courses, pagination };
     } catch (error) {
       console.error('Error fetching courses:', error);
       
@@ -64,11 +211,31 @@ export const courseService = {
   getOfflineCourses: (filters = {}) => {
     try {
       const cachedData = localStorage.getItem('cached_courses');
-      if (!cachedData) {
-        return [];
-      }
+      let courses = [];
       
-      let courses = JSON.parse(cachedData);
+      if (cachedData) {
+        courses = JSON.parse(cachedData);
+      } else {
+        // If no cached data exists, use sample courses
+        // Import data from the API model to ensure we have all 100 courses
+        courses = SAMPLE_COURSES;
+        
+        // Also try to load more courses from localStorage if available in a different format
+        const additionalCourses = localStorage.getItem('courses');
+        if (additionalCourses) {
+          try {
+            const parsedCourses = JSON.parse(additionalCourses);
+            if (Array.isArray(parsedCourses) && parsedCourses.length > 0) {
+              courses = parsedCourses;
+            }
+          } catch (e) {
+            console.warn('Failed to parse additional courses:', e);
+          }
+        }
+        
+        // Store the sample courses if nothing exists
+        safelyStoreInLocalStorage('cached_courses', courses);
+      }
       
       // Apply pending operations to local data
       const operations = offlineService.getOfflineOperations();
@@ -90,6 +257,9 @@ export const courseService = {
             break;
           case 'delete':
             courses = courses.filter(c => c.id !== op.id);
+            break;
+          default:
+            console.log(`Unknown operation type: ${op.type}`);
             break;
         }
       });
@@ -121,7 +291,7 @@ export const courseService = {
         );
       }
       
-      // Apply sorting
+      // Apply sorting with default case
       if (filters.sortBy) {
         switch (filters.sortBy) {
           case 'title':
@@ -136,18 +306,56 @@ export const courseService = {
           case 'rating':
             courses.sort((a, b) => b.rating - a.rating);
             break;
+          default:
+            // No sorting for unknown sort types
+            console.log(`Unknown sort type: ${filters.sortBy}`);
+            break;
         }
       }
       
+      // Make sure we're returning the full list of courses, not just a subset
+      console.log(`Offline mode: Found ${courses.length} courses total`);
       return courses;
     } catch (error) {
       console.error('Error getting offline courses:', error);
-      return [];
+      return SAMPLE_COURSES;
     }
   },
 
   addCourse: async (course) => {
     try {
+      // Use local storage if not using remote backend
+      if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
+        console.log('Using local storage for adding course');
+        
+        // Get current courses from storage
+        const cachedData = localStorage.getItem('cached_courses');
+        let courses = cachedData ? JSON.parse(cachedData) : SAMPLE_COURSES;
+        
+        // Find highest ID and increment by 1
+        const highestId = Math.max(...courses.map(c => typeof c.id === 'number' ? c.id : 0), 0);
+        const newId = highestId + 1;
+        
+        // Create new course with generated ID
+        const newCourse = {
+          ...course,
+          id: newId,
+          students: 0,
+          rating: 4.5
+        };
+        
+        // Add to local storage
+        courses.push(newCourse);
+        safelyStoreInLocalStorage('cached_courses', courses);
+        
+        // Notify UI
+        window.dispatchEvent(new CustomEvent('courseUpdated', {
+          detail: { action: 'add', course: newCourse }
+        }));
+        
+        return newCourse;
+      }
+      
       // Check if we're online and server is available
       if (!offlineService.isOnline || !offlineService.isServerAvailable) {
         console.log('Offline mode: Saving add operation for later');
@@ -201,6 +409,35 @@ export const courseService = {
 
   updateCourse: async (id, updatedCourse) => {
     try {
+      // Use local storage if not using remote backend
+      if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
+        console.log('Using local storage for updating course');
+        
+        // Get current courses
+        const cachedData = localStorage.getItem('cached_courses');
+        let courses = cachedData ? JSON.parse(cachedData) : SAMPLE_COURSES;
+        
+        // Find and update course
+        const index = courses.findIndex(c => c.id === id);
+        if (index === -1) {
+          throw new Error('Course not found');
+        }
+        
+        // Update course while preserving ID
+        const updatedRecord = { ...courses[index], ...updatedCourse, id };
+        courses[index] = updatedRecord;
+        
+        // Save back to storage
+        safelyStoreInLocalStorage('cached_courses', courses);
+        
+        // Notify UI
+        window.dispatchEvent(new CustomEvent('courseUpdated', {
+          detail: { action: 'update', course: updatedRecord }
+        }));
+        
+        return updatedRecord;
+      }
+      
       // Check if offline
       if (!offlineService.isOnline || !offlineService.isServerAvailable) {
         console.log('Offline mode: Saving update operation for later');
@@ -248,6 +485,33 @@ export const courseService = {
 
   deleteCourse: async (id) => {
     try {
+      // Use local storage if not using remote backend
+      if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
+        console.log('Using local storage for deleting course');
+        
+        // Get current courses
+        const cachedData = localStorage.getItem('cached_courses');
+        let courses = cachedData ? JSON.parse(cachedData) : SAMPLE_COURSES;
+        
+        // Find and remove course
+        const index = courses.findIndex(c => c.id === id);
+        if (index === -1) {
+          throw new Error('Course not found');
+        }
+        
+        courses.splice(index, 1);
+        
+        // Save back to storage
+        safelyStoreInLocalStorage('cached_courses', courses);
+        
+        // Notify UI
+        window.dispatchEvent(new CustomEvent('courseUpdated', {
+          detail: { action: 'delete', id }
+        }));
+        
+        return true;
+      }
+      
       // Check if offline
       if (!offlineService.isOnline || !offlineService.isServerAvailable) {
         console.log('Offline mode: Saving delete operation for later');
@@ -277,6 +541,8 @@ export const courseService = {
       window.dispatchEvent(new CustomEvent('courseUpdated', {
         detail: { action: 'delete', id }
       }));
+      
+      return true;
     } catch (error) {
       console.error('Error deleting course:', error);
       throw error;
@@ -286,11 +552,40 @@ export const courseService = {
   // Add a diagnostic method to check courses directly
   debugCourses: async () => {
     try {
+      if (!API_CONFIG.useRemoteBackend) {
+        const cachedData = localStorage.getItem('cached_courses');
+        const courses = cachedData ? JSON.parse(cachedData) : SAMPLE_COURSES;
+        return {
+          count: courses.length,
+          ids: courses.map(c => c.id),
+          courses: courses
+        };
+      }
+      
       const response = await fetch('/api/debug/courses');
       return await response.json();
     } catch (error) {
       console.error('Debug error:', error);
       return { error: error.message };
     }
+  },
+  
+  // Methods for toggling between local and remote backend
+  isUsingRemoteBackend: () => API_CONFIG.useRemoteBackend,
+  
+  setUseRemoteBackend: (useRemote) => {
+    API_CONFIG.useRemoteBackend = useRemote;
+    console.log(`API mode set to: ${useRemote ? 'Remote backend' : 'Local data'}`);
+    return API_CONFIG.useRemoteBackend;
+  },
+  
+  // Method to update the backend URL (for when moving to VM)
+  setBackendUrl: (url) => {
+    if (url) {
+      API_CONFIG.baseUrl = url;
+      console.log(`Backend URL updated to: ${url}`);
+      return true;
+    }
+    return false;
   }
 };

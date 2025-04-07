@@ -43,9 +43,8 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^14.6.1",
-    "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
-    "react-fakers": "^1.0.3-rc1",
-    "tailwindcss": "^3.4.3"
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5"
   }
 }

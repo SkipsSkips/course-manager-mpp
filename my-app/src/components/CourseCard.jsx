@@ -41,15 +41,17 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
       <div className="flex flex-col md:flex-row h-full">
         {/* Image container with hover effect */}
         <div className="relative w-full md:w-2/5 overflow-hidden">
-          <img
-            src={course.image || defaultImage}
+          <img 
+            src={
+              !course.image || course.image === 'IMAGE_PLACEHOLDER' 
+                ? defaultImageBase64 // Use the base64 encoded default image
+                : course.image
+            }
             alt={course.title}
-            className="w-full h-full object-cover min-h-[230px] transition-transform duration-700 group-hover:scale-110"
+            className="w-full h-40 object-cover rounded-t-lg"
             onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = defaultImage;
+              e.target.src = defaultImageBase64; // Use defaultImageBase64 as fallback
             }}
-            loading="lazy"
           />
           {/* Category badge with specific color */}
           <div 
