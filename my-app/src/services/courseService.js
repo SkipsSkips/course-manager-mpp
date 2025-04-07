@@ -223,11 +223,8 @@ export const courseService = {
       
       if (cachedData) {
         try {
-          courses = JSON.parse(cachedData);
-          if (!Array.isArray(courses)) {
-            console.error('Cached courses is not an array:', courses);
-            courses = SAMPLE_COURSES;
-          }
+          const parsedData = JSON.parse(cachedData);
+          courses = Array.isArray(parsedData) ? parsedData : SAMPLE_COURSES;
         } catch (e) {
           console.error('Error parsing cached courses:', e);
           courses = SAMPLE_COURSES;
@@ -240,7 +237,7 @@ export const courseService = {
         safelyStoreInLocalStorage('cached_courses', courses);
       }
       
-      // Make a copy of courses to avoid reference issues
+      // Make a deep copy to avoid reference issues
       courses = JSON.parse(JSON.stringify(courses));
       
       // Apply pending operations to local data
@@ -319,15 +316,25 @@ export const courseService = {
         }
       }
       
+      // If this is a full data request without pagination, return all courses
+      if (filters.fullData === true) {
+        return courses;
+      }
+      
       // If pagination is requested, return paginated data
       if (filters.page !== undefined || filters.limit !== undefined) {
         const page = parseInt(filters.page) || 1;
         const limit = parseInt(filters.limit) || 10;
         const startIndex = (page - 1) * limit;
-        const endIndex = Math.min(startIndex + limit, courses.length);
         
-        // Get paginated slice of data - make absolutely sure courses is an array
-        const paginatedCourses = Array.isArray(courses) ? courses.slice(startIndex, endIndex) : [];
+        // Extra safety check to ensure courses is an array before using slice
+        if (!Array.isArray(courses)) {
+          console.error("Courses is not an array:", courses);
+          courses = [];
+        }
+        
+        const endIndex = Math.min(startIndex + limit, courses.length);
+        const paginatedCourses = courses.slice(startIndex, endIndex);
         
         // Prepare pagination metadata
         const pagination = {

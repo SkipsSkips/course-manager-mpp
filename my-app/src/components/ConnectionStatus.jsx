@@ -138,14 +138,7 @@ const ConnectionStatus = () => {
                 {pendingOperations} pending {pendingOperations === 1 ? 'change' : 'changes'} will sync automatically when connection is restored.
               </p>
             )}
-            {(!status.isServerAvailable && status.isOnline) && (
-              <button 
-                onClick={handleManualSync} 
-                className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-              >
-                Try Reconnect Now
-              </button>
-            )}
+            {/* Removed the duplicate "Try Reconnect Now" button as requested */}
           </div>
         </div>
       )}

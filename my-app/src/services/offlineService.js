@@ -169,7 +169,7 @@ const offlineService = {
     };
   },
   
-  // Completely rewritten checkServerAvailability with robust error handling
+  // Completely rewritten checkServerAvailability with more robust error handling
   checkServerAvailability: async () => {
     if (isReconnecting) {
       console.log('Already checking server availability, skipping redundant check');
@@ -213,6 +213,20 @@ const offlineService = {
           });
           
           clearTimeout(timeoutId);
+          
+          if (!response) {
+            console.log(`No response from ${endpoint}`);
+            continue;  // Try next endpoint
+          }
+          
+          // Make sure we can actually get data, not just that the response exists
+          try {
+            // Try to read at least some data to verify the connection
+            await response.text();
+          } catch (readError) {
+            console.log(`Could not read response data from ${endpoint}:`, readError);
+            continue;  // Try next endpoint
+          }
           
           // If we get here, the server is available
           const wasAvailable = isServerAvailable;
@@ -277,6 +291,14 @@ const offlineService = {
       
       isReconnecting = false;
       return false;
+    } finally {
+      // Make absolutely sure isReconnecting gets reset even if everything fails
+      setTimeout(() => {
+        if (isReconnecting) {
+          console.log('Forcing reset of reconnecting flag after timeout');
+          isReconnecting = false;
+        }
+      }, CONNECTION_TIMEOUT + 500);
     }
   },
 
@@ -439,12 +461,28 @@ const offlineService = {
     // Listen for global reconnect events
     window.addEventListener('reconnectServer', () => offlineService.manualReconnect());
     
-    // Set up polling interval - more frequent polling for better responsiveness
+    // Set up polling interval with max errors handling
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 3;
+    
     serverCheckInterval = setInterval(() => {
       if (!isReconnecting) {
         offlineService.checkServerAvailability()
+          .then(available => {
+            if (available) {
+              consecutiveErrors = 0;
+            }
+          })
           .catch(err => {
             console.error('Periodic server check failed:', err);
+            consecutiveErrors++;
+            
+            // If we have too many consecutive errors, reset the reconnecting flag
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+              console.log(`Too many consecutive errors (${consecutiveErrors}), resetting reconnecting flag`);
+              isReconnecting = false;
+              consecutiveErrors = 0;
+            }
           });
       }
     }, POLLING_INTERVAL);
