@@ -19,9 +19,7 @@ const Home = ({ onEdit }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
   const { isSimulationRunning, toggleSimulation } = useContext(SimulationContext);
-  const coursesPerPage = 6;
   const forceRefreshCounter = useRef(0);
-  const isInitialMount = useRef(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(6); // Smaller default page size (changed from 10)
   const [totalItems, setTotalItems] = useState(0);
@@ -300,7 +298,7 @@ const Home = ({ onEdit }) => {
             <div className="flex items-center space-x-2">
               <span className="text-gray-600 mr-2">Items per page:</span>
               <div className="flex border border-gray-300 rounded overflow-hidden">
-                {[6, 10, 20, 50].map(limit => (
+                {[6, 10, 20, 50, 100].map(limit => (
                   <button
                     key={limit}
                     onClick={() => handleItemsPerPageChange(limit)}

@@ -44,10 +44,6 @@ const BackendToggle = () => {
   return (
     <div className="fixed bottom-2 left-2 z-50 bg-white p-2 rounded shadow-md border border-gray-300">
       <div className="flex items-center space-x-2">
-        <div className="flex items-center mr-2">
-          <span className={`inline-block w-3 h-3 rounded-full ${isServerAvailable ? 'bg-green-500' : 'bg-red-500'} mr-1`}></span>
-          <span className="text-xs font-medium">Server: {isServerAvailable ? 'Online' : 'Offline'}</span>
-        </div>
         <span className="text-xs font-medium">
           {isRemote ? 'Using Backend API' : 'Using Local Data'}
         </span>
