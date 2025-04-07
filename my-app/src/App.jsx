@@ -12,6 +12,7 @@ import Navigation from './components/Navigation';
 import { courseService } from './services/courseService';
 import { generateMockCourses } from './utils/generateMockCourses';
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import ConnectionStatus from './components/ConnectionStatus';
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -77,67 +78,63 @@ function AppContent() {
     navigate('/add');
   };
 
-  const toggleSimulation = () => {
-    setIsSimulationRunning(prev => !prev);
-    toast.info(`Course simulation ${!isSimulationRunning ? 'started' : 'stopped'}`);
+  const toggleSimulation = async () => {
+    try {
+      if (isSimulationRunning) {
+        // Stop simulation
+        await fetch('/api/simulation/stop', { method: 'POST' });
+        setIsSimulationRunning(false);
+        toast.info("Course simulation stopped");
+      } else {
+        // Start simulation
+        await fetch('/api/simulation/start', { method: 'POST' });
+        setIsSimulationRunning(true);
+        toast.info("Course simulation started");
+      }
+    } catch (error) {
+      console.error("Error toggling simulation:", error);
+      toast.error("Failed to toggle simulation");
+    }
   };
 
   useEffect(() => {
-    // Simulate real-time updates only if simulation is running
-    let updateInterval;
-    let isMounted = true;
-    
-    if (isSimulationRunning) {
-      updateInterval = setInterval(async () => {
-        try {
-          // Check if component is still mounted
-          if (!isMounted) return;
-          
-          // Fetch current courses to determine the number of courses
-          const currentCourses = await courseService.getCourses();
-
-          // Only continue if the component is still mounted
-          if (!isMounted) return;
-
-          // Randomly decide the type of update
-          const action = Math.random();
-
-          if (action < 0.5) {
-            // Add 1-2 new courses (50% chance)
-            const numCoursesToAdd = Math.random() < 0.5 ? 1 : 2;
-            const newCourses = generateMockCourses(numCoursesToAdd);
-            for (const newCourse of newCourses) {
-              if (!isMounted) return;
-              await courseService.addCourse(newCourse);
-              toast.info(`New course added: ${newCourse.title}`, { autoClose: 3000 });
-            }
-          } else if (currentCourses.length >= 3) {
-            // Delete 1-2 random courses (50% chance, if there are at least 3 courses)
-            const numCoursesToDelete = Math.random() < 0.5 ? 1 : 2;
-            const coursesToDelete = [];
-            for (let i = 0; i < numCoursesToDelete && currentCourses.length > 2; i++) {
-              if (!isMounted) return;
-              const randomIndex = Math.floor(Math.random() * currentCourses.length);
-              const courseToDelete = currentCourses[randomIndex];
-              if (!coursesToDelete.includes(courseToDelete)) {
-                coursesToDelete.push(courseToDelete);
-                await courseService.deleteCourse(courseToDelete.id);
-                toast.warn(`Course deleted: ${courseToDelete.title}`, { autoClose: 3000 });
-              }
-              currentCourses.splice(randomIndex, 1); // Remove from local array to avoid re-selecting
-            }
-          }
-        } catch (error) {
-          console.error('Simulation error:', error);
-        }
-      }, 10000); // Run every 10 seconds
-    }
-
-    return () => {
-      isMounted = false;
-      if (updateInterval) clearInterval(updateInterval);
+    // Check simulation status when component mounts
+    const checkSimulationStatus = async () => {
+      try {
+        const response = await fetch('/api/simulation/status');
+        const data = await response.json();
+        setIsSimulationRunning(data.isRunning);
+      } catch (error) {
+        console.error("Error checking simulation status:", error);
+      }
     };
-  }, [isSimulationRunning]);
+    
+    checkSimulationStatus();
+    
+    // Setup SSE for real-time updates
+    const eventSource = new EventSource('/api/courses/events');
+    
+    eventSource.addEventListener('courseUpdated', (event) => {
+      const data = JSON.parse(event.data);
+      if (data.action === 'add') {
+        toast.info(data.message || "New course added");
+      } else if (data.action === 'delete') {
+        toast.warn(data.message || "Course deleted");
+      }
+      
+      // Trigger refresh
+      window.dispatchEvent(new Event('courseUpdated'));
+    });
+    
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      eventSource.close();
+    };
+    
+    return () => {
+      eventSource.close();
+    };
+  }, []);
 
   return (
     <SimulationContext.Provider value={{ isSimulationRunning, toggleSimulation }}>
@@ -183,6 +180,7 @@ function AppContent() {
           pauseOnHover
           theme="light"
         />
+        <ConnectionStatus />
       </div>
     </SimulationContext.Provider>
   );

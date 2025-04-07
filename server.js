@@ -1,6 +1,8 @@
 const express = require('express');
 const path = require('path');
 const { courseRoutes } = require('./api/routes/courseRoutes');
+const { chartRoutes } = require('./api/routes/chartRoutes');
+const { simulationRoutes } = require('./api/routes/simulationRoutes');
 const { errorHandler } = require('./api/middleware/errorHandler');
 const { coursesData } = require('./api/models/courseModel');
 
@@ -30,6 +32,8 @@ app.get('/api/debug/courses', (req, res) => {
 
 // API routes
 app.use('/api/courses', courseRoutes);
+app.use('/api/charts', chartRoutes);
+app.use('/api/simulation', simulationRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {

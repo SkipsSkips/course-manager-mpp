@@ -9,6 +9,7 @@ import { generateMockCourses } from '../utils/generateMockCourses';
 import { SimulationContext } from '../App';
 import { getCategoryColor } from '../utils/categoryColors';
 import { PRICE_THRESHOLDS } from '../utils/constants';
+import offlineService from '../services/offlineService';
 
 const Home = ({ onEdit }) => {
   const [courses, setCourses] = useState([]);
@@ -22,6 +23,10 @@ const Home = ({ onEdit }) => {
   const coursesPerPage = 6;
   const forceRefreshCounter = useRef(0);
   const isInitialMount = useRef(true);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Default to 10 items per page
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const getPriceHighlight = (price, courses) => {
     if (!courses || courses.length <= 1) return null;
@@ -59,15 +64,23 @@ const Home = ({ onEdit }) => {
         priceMin: priceRange.min,
         priceMax: priceRange.max,
         sortBy: sort,
+        page: currentPage,
+        limit: itemsPerPage,
         forceCacheKey: forceRefreshCounter.current,
         timestamp: Date.now()
       };
 
       const data = await courseService.getCourses(filters);
 
-      if (Array.isArray(data)) {
-        console.log(`Received ${data.length} courses from API:`, data.map(c => c.id));
-        setCourses(data);
+      if (data && data.courses && Array.isArray(data.courses)) {
+        console.log(`Received ${data.courses.length} courses from API:`, data.courses.map(c => c.id));
+        setCourses(data.courses);
+        
+        // Update pagination info
+        if (data.pagination) {
+          setTotalItems(data.pagination.totalItems);
+          setTotalPages(data.pagination.totalPages);
+        }
       } else {
         console.error("Invalid data format returned:", data);
         toast.error("Error: Invalid data returned from server");
@@ -80,7 +93,7 @@ const Home = ({ onEdit }) => {
     } finally {
       setLoading(false);
     }
-  }, [search, category, priceRange.min, priceRange.max, sort]);
+  }, [search, category, priceRange.min, priceRange.max, sort, currentPage, itemsPerPage]);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -104,6 +117,19 @@ const Home = ({ onEdit }) => {
       window.removeEventListener('courseUpdated', handleCourseUpdate);
     };
   }, [fetchCourses]);
+
+  useEffect(() => {
+    const unsubscribe = offlineService.addListener(status => {
+      setIsOfflineMode(!status.isOnline || !status.isServerAvailable);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when changing items per page
+    fetchCourses();
+  }, [itemsPerPage, fetchCourses]);
 
   const handleForceRefresh = () => {
     forceRefreshCounter.current += 1;
@@ -131,12 +157,15 @@ const Home = ({ onEdit }) => {
     setCurrentPage(1);
   };
 
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+  };
+
   const filteredCourses = courses;
 
   const indexOfLastCourse = currentPage * coursesPerPage;
   const indexOfFirstCourse = indexOfLastCourse - coursesPerPage;
   const currentCourses = filteredCourses.slice(indexOfFirstCourse, indexOfLastCourse);
-  const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
 
   if (loading) return (
     <div className="flex justify-center items-center h-screen">
@@ -224,6 +253,15 @@ const Home = ({ onEdit }) => {
             </div>
           )}
           
+          {isOfflineMode && (
+            <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md">
+              <p className="text-yellow-800">
+                <strong>Offline Mode:</strong> You're currently working offline. 
+                Your changes will be saved locally and synchronized when you reconnect.
+              </p>
+            </div>
+          )}
+          
           {currentCourses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
               {currentCourses.map(course => (
@@ -252,19 +290,70 @@ const Home = ({ onEdit }) => {
           )}
           
           {totalPages > 1 && (
-            <div className="mt-8 mb-10 flex justify-center">
-              <div className="flex space-x-2 shadow-md rounded-lg overflow-hidden">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-4 py-2 ${
-                      currentPage === page ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'
-                    } transition-colors border-r border-gray-200 last:border-r-0`}
-                  >
-                    {page}
-                  </button>
-                ))}
+            <div className="mt-8 flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow">
+              <div className="mb-4 sm:mb-0">
+                <span className="text-gray-600">
+                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} courses
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <span className="text-gray-600 mr-2">Items per page:</span>
+                <div className="flex border border-gray-300 rounded overflow-hidden">
+                  {[10, 40, 100].map(limit => (
+                    <button
+                      key={limit}
+                      onClick={() => handleItemsPerPageChange(limit)}
+                      className={`px-3 py-1 ${itemsPerPage === limit ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors border-r border-gray-200 last:border-r-0`}
+                    >
+                      {limit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex mt-4 sm:mt-0">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1 rounded-l border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}
+                >
+                  Prev
+                </button>
+                
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Show 5 pages max with current page in the middle if possible
+                  let page;
+                  if (totalPages <= 5) {
+                    page = i + 1;
+                  } else if (currentPage <= 3) {
+                    page = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    page = totalPages - 4 + i;
+                  } else {
+                    page = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 border-t border-b ${
+                        currentPage === page ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'
+                      } transition-colors border-r border-gray-200 last:border-r-0`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1 rounded-r border ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}
+                >
+                  Next
+                </button>
               </div>
             </div>
           )}

@@ -1,7 +1,8 @@
 const { coursesData } = require('../models/courseModel');
 const { defaultImageBase64 } = require('../utils/defaultImage');
+const { broadcastEvent } = require('../services/eventService'); // This creates a circular dependency, but we'll fix it
 
-// Get all courses with optional filtering and sorting
+// Get all courses with optional filtering, sorting, and pagination
 const getCourses = (req, res) => {
   try {
     // DEBUG: Log the raw courses first
@@ -9,7 +10,7 @@ const getCourses = (req, res) => {
     
     // Always return a fresh deep copy to prevent reference issues
     let filteredCourses = JSON.parse(JSON.stringify(coursesData.courses));
-    const { search, category, priceMin, priceMax, sortBy } = req.query;
+    const { search, category, priceMin, priceMax, sortBy, page, limit } = req.query;
     
     // Apply filters
     if (search) {
@@ -41,22 +42,16 @@ const getCourses = (req, res) => {
     // Apply sorting
     if (sortBy) {
       switch (sortBy) {
+        case 'title':
+          filteredCourses.sort((a, b) => a.title.localeCompare(b.title));
+          break;
         case 'price-asc':
           filteredCourses.sort((a, b) => a.price - b.price);
           break;
         case 'price-desc':
           filteredCourses.sort((a, b) => b.price - a.price);
           break;
-        case 'title-asc':
-          filteredCourses.sort((a, b) => a.title.localeCompare(b.title));
-          break;
-        case 'title-desc':
-          filteredCourses.sort((a, b) => b.title.localeCompare(a.title));
-          break;
-        case 'rating-asc':
-          filteredCourses.sort((a, b) => a.rating - b.rating);
-          break;
-        case 'rating-desc':
+        case 'rating':
           filteredCourses.sort((a, b) => b.rating - a.rating);
           break;
         default:
@@ -65,23 +60,47 @@ const getCourses = (req, res) => {
       }
     }
     
+    // Create pagination metadata
+    const totalItems = filteredCourses.length;
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || totalItems; // Default to all items if no limit
+    
+    // Apply pagination
+    const startIndex = (pageNum - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalItems);
+    const paginatedCourses = filteredCourses.slice(startIndex, endIndex);
+    
     // Make sure every course has an image
-    filteredCourses = filteredCourses.map(course => {
+    const coursesWithImages = paginatedCourses.map(course => {
       if (!course.image) {
         course.image = defaultImageBase64;
       }
       return course;
     });
     
+    // Prepare pagination metadata
+    const pagination = {
+      page: pageNum,
+      limit: pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / pageSize),
+      hasNextPage: endIndex < totalItems,
+      hasPrevPage: pageNum > 1
+    };
+    
     // For debugging
-    console.log(`Returning ${filteredCourses.length} courses with IDs: ${filteredCourses.map(c => c.id).join(', ')}`);
+    console.log(`Returning ${coursesWithImages.length} courses with IDs: ${coursesWithImages.map(c => c.id).join(', ')}`);
     
     // Set explicit no-cache headers
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    res.json(filteredCourses);
+    // Return both courses and pagination info
+    res.json({
+      courses: coursesWithImages,
+      pagination
+    });
   } catch (error) {
     console.error('Error in getCourses:', error);
     res.status(500).json({ message: 'Error retrieving courses', error: error.message });
@@ -121,9 +140,12 @@ const createCourse = (req, res) => {
     
     coursesData.courses.push(newCourse);
     
-    // Explicitly broadcast course update through the response headers
-    res.setHeader('X-Course-Updated', 'true');
-    res.setHeader('X-Course-Id', newCourse.id.toString());
+    // Broadcast the event to all connected clients
+    broadcastEvent('courseUpdated', {
+      action: 'add',
+      course: newCourse,
+      message: `New course added: ${newCourse.title}`
+    });
     
     console.log(`Added course with ID ${newCourse.id}, total courses: ${coursesData.courses.length}, all IDs: ${coursesData.courses.map(c => c.id).join(',')}`);
     
@@ -158,6 +180,13 @@ const updateCourse = (req, res) => {
       id // Ensure ID doesn't change
     };
     
+    // Broadcast the event to all connected clients
+    broadcastEvent('courseUpdated', {
+      action: 'update',
+      course: coursesData.courses[index],
+      message: `Course updated: ${coursesData.courses[index].title}`
+    });
+    
     res.json(coursesData.courses[index]);
   } catch (error) {
     res.status(500).json({ message: 'Error updating course', error: error.message });
@@ -174,7 +203,16 @@ const deleteCourse = (req, res) => {
       return res.status(404).json({ message: 'Course not found' });
     }
     
+    const deletedCourse = coursesData.courses[index];
     coursesData.courses.splice(index, 1);
+    
+    // Broadcast the event to all connected clients
+    broadcastEvent('courseUpdated', {
+      action: 'delete',
+      id,
+      message: `Course deleted: ${deletedCourse.title}`
+    });
+    
     res.status(204).send();
   } catch (error) {
     res.status(500).json({ message: 'Error deleting course', error: error.message });

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { courseService } from '../services/courseService';
+import offlineService from '../services/offlineService';
 
 const AddCourse = ({ onAdd, initialData }) => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const AddCourse = ({ onAdd, initialData }) => {
     minutes: '',
     image: ''
   });
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -29,6 +31,14 @@ const AddCourse = ({ onAdd, initialData }) => {
       });
     }
   }, [initialData]);
+
+  useEffect(() => {
+    const unsubscribe = offlineService.addListener(status => {
+      setIsOfflineMode(!status.isOnline || !status.isServerAvailable);
+    });
+    
+    return () => unsubscribe();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -89,6 +99,15 @@ const AddCourse = ({ onAdd, initialData }) => {
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
+      {isOfflineMode && (
+        <div className="mb-6 p-3 bg-yellow-100 border border-yellow-300 rounded-md">
+          <p className="text-yellow-800">
+            <strong>Offline Mode:</strong> You're currently working offline. 
+            {initialData ? 'Your updates' : 'This new course'} will be saved locally and synchronized when you reconnect.
+          </p>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-800">
           {initialData ? 'Edit Course' : 'Add New Course'}

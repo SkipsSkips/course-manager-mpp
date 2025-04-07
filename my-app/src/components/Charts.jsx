@@ -1,130 +1,149 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
-import { courseService } from '../services/courseService';
 
 // Register Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 const Charts = () => {
-  const [courses, setCourses] = useState([]);
+  const [chartData, setChartData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const isMounted = useRef(true);
-  const isInitialLoad = useRef(true);
 
   useEffect(() => {
-    // Initial fetch only once
-    const fetchCourses = async () => {
+    const fetchChartData = async () => {
       if (!isMounted.current) return;
       setLoading(true);
       try {
-        const data = await courseService.getCourses();
+        const response = await fetch('/api/charts', {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch chart data');
+        }
+        
+        const data = await response.json();
         if (isMounted.current) {
-          setCourses(data);
+          setChartData(data);
+          setError(null);
         }
       } catch (error) {
-        console.error('Error fetching courses for charts:', error);
+        console.error('Error fetching chart data:', error);
+        if (isMounted.current) {
+          setError('Failed to load chart data. Please try again later.');
+        }
       } finally {
         if (isMounted.current) {
           setLoading(false);
-          isInitialLoad.current = false;
         }
       }
     };
 
-    if (isInitialLoad.current) {
-      fetchCourses();
-    }
+    fetchChartData();
 
-    // Only update on explicit courseUpdated events, not automatically
+    // Listen for course updates to refresh chart data
     const handleCourseUpdate = () => {
-      // Don't refresh on every event, only when specifically 
-      // adding/deleting, not on normal refreshes
-      if (!isInitialLoad.current && isMounted.current) {
-        fetchCourses();
-      }
+      fetchChartData();
     };
-
+    
     window.addEventListener('courseUpdated', handleCourseUpdate);
-
+    
     return () => {
       isMounted.current = false;
       window.removeEventListener('courseUpdated', handleCourseUpdate);
     };
-  }, []); // Empty dependency array = run only on mount
+  }, []);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center">
+      <div className="flex justify-center items-center p-8">
         <svg
           className="animate-spin h-8 w-8 text-blue-600"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
         >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path
             className="opacity-75"
             fill="currentColor"
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
           ></path>
         </svg>
-        <span className="ml-3 text-gray-600">Loading charts...</span>
+        <span className="ml-2">Loading charts...</span>
       </div>
     );
   }
 
-  // Chart 1: Number of Courses per Category (Bar Chart)
-  const categories = [...new Set(courses.map(course => course.category))];
-  const coursesPerCategory = categories.map(category =>
-    courses.filter(course => course.category === category).length
-  );
+  if (error) {
+    return (
+      <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+        <p>{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+        >
+          Reload
+        </button>
+      </div>
+    );
+  }
 
-  const coursesPerCategoryData = {
-    labels: categories,
+  if (!chartData) {
+    return null;
+  }
+
+  // Chart 1: Course Distribution by Category (Doughnut Chart)
+  const categoryData = {
+    labels: chartData.categoryDistribution.labels,
     datasets: [
       {
-        label: 'Number of Courses',
-        data: coursesPerCategory,
-        backgroundColor: 'rgba(59, 130, 246, 0.7)', // Blue-500
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 1,
-        borderRadius: 8, // Rounded bars
-        hoverBackgroundColor: 'rgba(59, 130, 246, 0.9)',
+        data: chartData.categoryDistribution.data,
+        backgroundColor: [
+          'rgba(54, 162, 235, 0.7)',
+          'rgba(255, 99, 132, 0.7)',
+          'rgba(255, 206, 86, 0.7)',
+          'rgba(75, 192, 192, 0.7)',
+          'rgba(153, 102, 255, 0.7)',
+          'rgba(255, 159, 64, 0.7)',
+          'rgba(199, 199, 199, 0.7)',
+        ],
+        borderColor: [
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 99, 132, 1)',
+          'rgba(255, 206, 86, 1)',
+          'rgba(75, 192, 192, 1)',
+          'rgba(153, 102, 255, 1)',
+          'rgba(255, 159, 64, 1)',
+          'rgba(199, 199, 199, 1)',
+        ],
+        borderWidth: 2,
+        hoverBackgroundColor: [
+          'rgba(54, 162, 235, 0.9)',
+          'rgba(255, 99, 132, 0.9)',
+          'rgba(255, 206, 86, 0.9)',
+          'rgba(75, 192, 192, 0.9)',
+          'rgba(153, 102, 255, 0.9)',
+          'rgba(255, 159, 64, 0.9)',
+          'rgba(199, 199, 199, 0.9)',
+        ],
       },
     ],
   };
 
   // Chart 2: Price Distribution (Doughnut Chart)
-  const priceRanges = {
-    '0-25': 0,
-    '25-50': 0,
-    '50-75': 0,
-    '75-100': 0,
-    '100+': 0,
-  };
-
-  courses.forEach(course => {
-    if (course.price < 25) priceRanges['0-25']++;
-    else if (course.price < 50) priceRanges['25-50']++;
-    else if (course.price < 75) priceRanges['50-75']++;
-    else if (course.price < 100) priceRanges['75-100']++;
-    else priceRanges['100+']++;
-  });
-
   const priceDistributionData = {
-    labels: Object.keys(priceRanges),
+    labels: chartData.priceDistribution.labels,
     datasets: [
       {
         label: 'Price Distribution',
-        data: Object.values(priceRanges),
+        data: chartData.priceDistribution.data,
         backgroundColor: [
           'rgba(239, 68, 68, 0.7)',  // Red-500
           'rgba(59, 130, 246, 0.7)', // Blue-500
@@ -152,28 +171,22 @@ const Charts = () => {
   };
 
   // Chart 3: Average Lessons per Category (Bar Chart)
-  const averageLessonsPerCategory = categories.map(category => {
-    const categoryCourses = courses.filter(course => course.category === category);
-    const totalLessons = categoryCourses.reduce((sum, course) => sum + course.lessons, 0);
-    return categoryCourses.length ? totalLessons / categoryCourses.length : 0;
-  });
-
   const averageLessonsData = {
-    labels: categories,
+    labels: chartData.averageLessonsPerCategory.labels,
     datasets: [
       {
         label: 'Average Lessons',
-        data: averageLessonsPerCategory,
-        backgroundColor: 'rgba(16, 185, 129, 0.7)', // Emerald-500
-        borderColor: 'rgba(16, 185, 129, 1)',
-        borderWidth: 1,
-        borderRadius: 8,
-        hoverBackgroundColor: 'rgba(16, 185, 129, 0.9)',
+        data: chartData.averageLessonsPerCategory.data,
+        backgroundColor: 'rgba(59, 130, 246, 0.7)', // Blue-500
+        borderColor: 'rgba(59, 130, 246, 1)',
+        borderWidth: 2,
+        hoverBackgroundColor: 'rgba(59, 130, 246, 0.9)',
       },
     ],
   };
 
-  const chartOptions = {
+  // Common options for bar charts
+  const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -276,29 +289,25 @@ const Charts = () => {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <span className="mr-2 text-blue-500">📊</span> Courses per Category
-        </h2>
-        <div className="h-80">
-          <Bar data={coursesPerCategoryData} options={chartOptions} />
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="bg-white p-6 rounded-xl shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">Course Distribution by Category</h3>
+        <div className="h-64">
+          <Doughnut data={categoryData} options={doughnutOptions} />
         </div>
       </div>
-      <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <span className="mr-2 text-red-500">💰</span> Price Distribution
-        </h2>
-        <div className="h-80">
+
+      <div className="bg-white p-6 rounded-xl shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">Price Distribution</h3>
+        <div className="h-64">
           <Doughnut data={priceDistributionData} options={doughnutOptions} />
         </div>
       </div>
-      <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-          <span className="mr-2 text-emerald-500">📚</span> Average Lessons per Category
-        </h2>
-        <div className="h-80">
-          <Bar data={averageLessonsData} options={chartOptions} />
+
+      <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">Average Lessons per Category</h3>
+        <div className="h-64">
+          <Bar data={averageLessonsData} options={barOptions} />
         </div>
       </div>
     </div>
