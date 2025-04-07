@@ -228,19 +228,6 @@ export const courseService = {
         // Import data from the API model to ensure we have all 100 courses
         courses = SAMPLE_COURSES;
         
-        // Also try to load more courses from localStorage if available in a different format
-        const additionalCourses = localStorage.getItem('courses');
-        if (additionalCourses) {
-          try {
-            const parsedCourses = JSON.parse(additionalCourses);
-            if (Array.isArray(parsedCourses) && parsedCourses.length > 0) {
-              courses = parsedCourses;
-            }
-          } catch (e) {
-            console.warn('Failed to parse additional courses:', e);
-          }
-        }
-        
         // Store the sample courses if nothing exists
         safelyStoreInLocalStorage('cached_courses', courses);
       }
@@ -321,12 +308,53 @@ export const courseService = {
         }
       }
       
-      // Make sure we're returning the full list of courses, not just a subset
-      console.log(`Offline mode: Found ${courses.length} courses total`);
-      return courses;
+      // If pagination is requested, return paginated data
+      if (filters.page !== undefined || filters.limit !== undefined) {
+        const page = parseInt(filters.page) || 1;
+        const limit = parseInt(filters.limit) || 10;
+        const startIndex = (page - 1) * limit;
+        const endIndex = Math.min(startIndex + limit, courses.length);
+        
+        // Get paginated slice of data
+        const paginatedCourses = courses.slice(startIndex, endIndex);
+        
+        // Prepare pagination metadata
+        const pagination = {
+          page: page,
+          limit: limit,
+          totalItems: courses.length,
+          totalPages: Math.ceil(courses.length / limit)
+        };
+        
+        console.log(`Offline pagination: page ${page}/${pagination.totalPages}, showing ${paginatedCourses.length} of ${courses.length} courses`);
+        
+        return {
+          courses: paginatedCourses, 
+          pagination: pagination
+        };
+      }
+      
+      // If no pagination requested, return all filtered courses
+      return { 
+        courses,
+        pagination: {
+          page: 1,
+          limit: courses.length,
+          totalItems: courses.length,
+          totalPages: 1
+        }
+      };
     } catch (error) {
       console.error('Error getting offline courses:', error);
-      return SAMPLE_COURSES;
+      return { 
+        courses: SAMPLE_COURSES,
+        pagination: {
+          page: 1,
+          limit: SAMPLE_COURSES.length,
+          totalItems: SAMPLE_COURSES.length,
+          totalPages: 1
+        }
+      };
     }
   },
 

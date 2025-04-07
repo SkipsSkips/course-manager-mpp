@@ -47,71 +47,71 @@ const Home = ({ onEdit }) => {
     return null;
   };
 
-  const fetchCourses = useCallback(async () => {
-    console.log("Fetching courses with refresh counter:", forceRefreshCounter.current);
-    setLoading(true);
+  const handleItemsPerPageChange = (newLimit) => {
+    setItemsPerPage(newLimit);
+    // Reset to first page when changing items per page, but don't trigger a separate fetch
+    setCurrentPage(1);
+  };
 
-    try {
-      const filters = {
-        search,
-        category: category !== 'All' ? category : undefined,
-        priceMin: priceRange.min,
-        priceMax: priceRange.max,
-        sortBy: sort,
-        page: currentPage,
-        limit: itemsPerPage,
-        forceCacheKey: forceRefreshCounter.current,
-        timestamp: Date.now()
-      };
+  // Separate useEffect for handling currentPage and itemsPerPage changes
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const filters = {
+          search,
+          category: category !== 'All' ? category : undefined,
+          priceMin: priceRange.min,
+          priceMax: priceRange.max,
+          sortBy: sort,
+          page: currentPage,
+          limit: itemsPerPage,
+          forceCacheKey: forceRefreshCounter.current,
+          timestamp: Date.now()
+        };
 
-      const response = await courseService.getCourses(filters);
+        const response = await courseService.getCourses(filters);
 
-      if (response && response.courses && Array.isArray(response.courses)) {
-        console.log(`Received ${response.courses.length} courses from API:`, response.courses.map(c => c.id));
-        setCourses(response.courses);
-        
-        // Update pagination info
-        if (response.pagination) {
-          setTotalItems(response.pagination.totalItems);
-          setTotalPages(response.pagination.totalPages);
-          console.log(`Setting total pages: ${response.pagination.totalPages}, total items: ${response.pagination.totalItems}`);
+        if (response && response.courses && Array.isArray(response.courses)) {
+          console.log(`Received ${response.courses.length} courses from API:`, response.courses.map(c => c.id));
+          setCourses(response.courses);
+          
+          // Update pagination info
+          if (response.pagination) {
+            setTotalItems(response.pagination.totalItems);
+            setTotalPages(response.pagination.totalPages);
+            console.log(`Setting total pages: ${response.pagination.totalPages}, total items: ${response.pagination.totalItems}`);
+          } else {
+            // If no pagination info, assume all courses are returned
+            setTotalItems(response.courses.length);
+            setTotalPages(Math.ceil(response.courses.length / itemsPerPage));
+          }
         } else {
-          // If no pagination info, assume all courses are returned
-          setTotalItems(response.courses.length);
-          setTotalPages(Math.ceil(response.courses.length / itemsPerPage));
+          console.error("Invalid data format returned:", response);
+          toast.error("Error: Invalid data returned from server");
+          setCourses([]);
+          setTotalItems(0);
+          setTotalPages(1);
         }
-      } else {
-        console.error("Invalid data format returned:", response);
-        toast.error("Error: Invalid data returned from server");
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+        toast.error(`Failed to load courses: ${error.message}`);
         setCourses([]);
         setTotalItems(0);
         setTotalPages(1);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-      toast.error(`Failed to load courses: ${error.message}`);
-      setCourses([]);
-      setTotalItems(0);
-      setTotalPages(1);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, category, priceRange.min, priceRange.max, sort, currentPage, itemsPerPage]);
+    };
 
-  useEffect(() => {
-    if (isInitialMount.current) {
-      fetchCourses();
-      isInitialMount.current = false;
-    } else {
-      fetchCourses();
-    }
-  }, [fetchCourses]);
+    fetchData();
+  }, [currentPage, itemsPerPage, search, category, sort, priceRange.min, priceRange.max]); // All dependencies that should trigger a fetch
 
   useEffect(() => {
     const handleCourseUpdate = (e) => {
       console.log("Course updated event received", e.detail || {});
       forceRefreshCounter.current += 1;
-      fetchCourses();
+      // Don't call fetchCourses directly, just update the counter to trigger a re-render
     };
 
     window.addEventListener('courseUpdated', handleCourseUpdate);
@@ -119,7 +119,7 @@ const Home = ({ onEdit }) => {
     return () => {
       window.removeEventListener('courseUpdated', handleCourseUpdate);
     };
-  }, [fetchCourses]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = offlineService.addListener(status => {
@@ -129,14 +129,10 @@ const Home = ({ onEdit }) => {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    setCurrentPage(1); // Reset to first page when changing items per page
-    fetchCourses();
-  }, [itemsPerPage, fetchCourses]);
-
   const handleForceRefresh = () => {
     forceRefreshCounter.current += 1;
-    fetchCourses();
+    // This will cause a re-render, which will then trigger the useEffect that fetches courses
+    setCurrentPage(currentPage); // Force a re-render without changing the page
     toast.info("Manually refreshing courses...");
   };
 
@@ -165,10 +161,6 @@ const Home = ({ onEdit }) => {
     });
     setCurrentPage(1); // Reset to first page when changing filters
   }, []);
-
-  const handleItemsPerPageChange = (newLimit) => {
-    setItemsPerPage(newLimit);
-  };
 
   const filteredCourses = courses;
 
@@ -278,7 +270,8 @@ const Home = ({ onEdit }) => {
                   onEdit={onEdit}
                   onDelete={async (id) => {
                     await courseService.deleteCourse(id);
-                    fetchCourses();
+                    forceRefreshCounter.current += 1;
+                    setCurrentPage(currentPage); // Force a re-render
                     toast.success('Course deleted successfully!');
                   }}
                   highlight={getPriceHighlight(course.price, currentCourses)}
