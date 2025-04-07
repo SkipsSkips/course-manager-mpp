@@ -43,7 +43,7 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
         <div className="relative w-full md:w-2/5 overflow-hidden">
           <img 
             src={
-              !course.image || course.image === 'IMAGE_PLACEHOLDER' 
+              !course.image || course.image === 'IMAGE_PLACEHOLDER' || course.image === 'defaultImageBase64'
                 ? defaultImageBase64 // Use the base64 encoded default image
                 : course.image
             }

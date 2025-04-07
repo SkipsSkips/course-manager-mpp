@@ -30,7 +30,7 @@ const safelyStoreInLocalStorage = (key, data) => {
 // Configuration for API connection
 const API_CONFIG = {
   // Set to true to use the backend, false to use local data
-  useRemoteBackend: false,
+  useRemoteBackend: true, // Changed to true to use backend by default
   // Default backend URL (localhost for development)
   baseUrl: 'http://localhost:5000',
 };
@@ -164,7 +164,15 @@ export const courseService = {
       // Check if we're offline or server is unavailable
       if (!offlineService.isOnline || !offlineService.isServerAvailable) {
         console.log('Offline mode: Using local storage data');
-        return courseService.getOfflineCourses(filters);
+        return { 
+          courses: courseService.getOfflineCourses(filters),
+          pagination: {
+            page: parseInt(filters.page) || 1,
+            limit: parseInt(filters.limit) || 10,
+            totalItems: courseService.getOfflineCourses().length,
+            totalPages: Math.ceil(courseService.getOfflineCourses().length / (parseInt(filters.limit) || 10))
+          }
+        };
       }
       
       const response = await fetch(`/api/courses${query}`, {

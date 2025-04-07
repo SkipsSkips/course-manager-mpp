@@ -23,7 +23,7 @@ const Home = ({ onEdit }) => {
   const forceRefreshCounter = useRef(0);
   const isInitialMount = useRef(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
-  const [itemsPerPage, setItemsPerPage] = useState(10); // Default to 10 items per page
+  const [itemsPerPage, setItemsPerPage] = useState(6); // Smaller default page size (changed from 10)
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -296,74 +296,73 @@ const Home = ({ onEdit }) => {
             </div>
           )}
           
-          {totalPages > 1 && (
-            <div className="mt-8 flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow">
-              <div className="mb-4 sm:mb-0">
-                <span className="text-gray-600">
-                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} courses
-                </span>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-600 mr-2">Items per page:</span>
-                <div className="flex border border-gray-300 rounded overflow-hidden">
-                  {[10, 20, 50, 100].map(limit => (
-                    <button
-                      key={limit}
-                      onClick={() => handleItemsPerPageChange(limit)}
-                      className={`px-3 py-1 ${itemsPerPage === limit ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors border-r border-gray-200 last:border-r-0`}
-                    >
-                      {limit}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex mt-4 sm:mt-0">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className={`px-3 py-1 rounded-l border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}
-                >
-                  Prev
-                </button>
-                
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  // Show 5 pages max with current page in the middle if possible
-                  let page;
-                  if (totalPages <= 5) {
-                    page = i + 1;
-                  } else if (currentPage <= 3) {
-                    page = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    page = totalPages - 4 + i;
-                  } else {
-                    page = currentPage - 2 + i;
-                  }
-                  
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 border-t border-b ${
-                        currentPage === page ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'
-                      } transition-colors border-r border-gray-200 last:border-r-0`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-                
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className={`px-3 py-1 rounded-r border ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}
-                >
-                  Next
-                </button>
+          {/* Always show pagination controls */}
+          <div className="mt-8 flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow">
+            <div className="mb-4 sm:mb-0">
+              <span className="text-gray-600">
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} courses
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-600 mr-2">Items per page:</span>
+              <div className="flex border border-gray-300 rounded overflow-hidden">
+                {[6, 10, 20, 50].map(limit => (
+                  <button
+                    key={limit}
+                    onClick={() => handleItemsPerPageChange(limit)}
+                    className={`px-3 py-1 ${itemsPerPage === limit ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors border-r border-gray-200 last:border-r-0`}
+                  >
+                    {limit}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
+            
+            <div className="flex mt-4 sm:mt-0">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`px-3 py-1 rounded-l border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}
+              >
+                Prev
+              </button>
+              
+              {Array.from({ length: Math.min(5, Math.max(totalPages, 1)) }, (_, i) => {
+                // Logic for page number display
+                let page;
+                if (totalPages <= 5) {
+                  page = i + 1;
+                } else if (currentPage <= 3) {
+                  page = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  page = totalPages - 4 + i;
+                } else {
+                  page = currentPage - 2 + i;
+                }
+                
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 border-t border-b ${
+                      currentPage === page ? 'bg-blue-600 text-white font-semibold' : 'bg-white text-gray-700 hover:bg-gray-100'
+                    } transition-colors border-r border-gray-200 last:border-r-0`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.max(totalPages, 1)))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className={`px-3 py-1 rounded-r border ${currentPage === totalPages || totalPages === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-100'} transition-colors`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
           
           <div className="mt-4 mb-4 p-4 bg-gray-100 rounded-lg">
             <p className="text-sm text-gray-600">Courses in state: {courses.length}</p>
