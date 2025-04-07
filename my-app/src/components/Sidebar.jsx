@@ -3,6 +3,145 @@ import { getCategoryIcon } from '../utils/categoryIcons';
 import { getCategoryColor } from '../utils/categoryColors';
 import { courseService } from '../services/courseService';
 
+// Further enhanced search component with ultra-robust event handling
+class SearchInputBox extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      internalValue: props.value || ''
+    };
+    this.inputRef = React.createRef();
+    this.containerRef = React.createRef();
+    
+    // Bind methods to ensure correct this context
+    this.blockSubmitEvents = this.blockSubmitEvents.bind(this);
+  }
+  
+  componentDidMount() {
+    // Add global capture event listener to block any submit events from bubbling
+    if (this.containerRef.current) {
+      this.containerRef.current.addEventListener('submit', this.blockSubmitEvents, { capture: true });
+      this.containerRef.current.addEventListener('keydown', this.blockEnterKey, { capture: true });
+    }
+    
+    // Add global listener to handle Enter key in case event bubbles up
+    document.addEventListener('keydown', this.blockEnterKey, { capture: true });
+  }
+  
+  componentWillUnmount() {
+    // Cleanup event listeners
+    if (this.containerRef.current) {
+      this.containerRef.current.removeEventListener('submit', this.blockSubmitEvents, { capture: true });
+      this.containerRef.current.removeEventListener('keydown', this.blockEnterKey, { capture: true });
+    }
+    document.removeEventListener('keydown', this.blockEnterKey, { capture: true });
+  }
+
+  componentDidUpdate(prevProps) {
+    // Only update internal state if prop value changes and it's different from internal state
+    if (prevProps.value !== this.props.value && this.props.value !== this.state.internalValue) {
+      this.setState({ internalValue: this.props.value });
+    }
+  }
+  
+  // Block all submit events at capture phase
+  blockSubmitEvents(e) {
+    const target = e.target;
+    
+    // Check if the event originated from our input
+    if (this.inputRef.current && (target === this.inputRef.current || this.containerRef.current.contains(target))) {
+      console.log('Blocking submit event at capture phase');
+      e.stopPropagation();
+      e.preventDefault();
+      return false;
+    }
+  }
+  
+  // Block Enter key specifically
+  blockEnterKey = (e) => {
+    const target = e.target;
+    
+    // Only block if it's from our input
+    if (this.inputRef.current === document.activeElement || 
+        (this.inputRef.current && target === this.inputRef.current)) {
+      if (e.key === 'Enter') {
+        console.log('Blocking Enter key in search input');
+        e.stopPropagation();
+        e.preventDefault();
+        this.inputRef.current.blur(); // Remove focus on Enter
+        return false;
+      }
+    }
+  }
+
+  handleInputChange = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const newValue = e.target.value;
+    this.setState({ internalValue: newValue }, () => {
+      // Only call parent callback after state update
+      this.props.onChange(newValue);
+    });
+  };
+  
+  handleKeyDown = (e) => {
+    // Prevent any form submission behaviors
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      this.inputRef.current.blur(); // Remove focus to hide virtual keyboard on mobile
+      return false;
+    }
+  };
+  
+  handleClear = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    this.setState({ internalValue: '' }, () => {
+      this.props.onClear();
+      // Focus back on input after clearing
+      this.inputRef.current.focus();
+    });
+  };
+  
+  render() {
+    return (
+      <div ref={this.containerRef} className="relative mb-6 group" onClick={e => e.stopPropagation()}>
+        <div className="relative">
+          <input
+            ref={this.inputRef}
+            id="search-input"
+            type="text"
+            placeholder="What do you want to learn?"
+            value={this.state.internalValue}
+            onChange={this.handleInputChange}
+            onKeyDown={this.handleKeyDown}
+            className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 group-hover:shadow-md"
+            autoComplete="off" // Disable browser autocomplete
+            onSubmit={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              return false;
+            }}
+          />
+          {this.state.internalValue && (
+            <button
+              type="button"
+              onClick={this.handleClear}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+      </div>
+    );
+  }
+}
+
 const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategory = 'All' }) => {
   // Initialize with default categories to ensure they're always displayed
   const defaultCategories = ['All', 'Programming', 'Design', 'Marketing', 
@@ -102,16 +241,29 @@ const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategor
   }, []);
 
   // Ensure proper handling of search events
-  const handleSearchChange = (e) => {
-    e.preventDefault(); // Prevent default behavior
-    const value = e.target.value;
-    setSearchValue(value);
-    onSearch(value);
+  const handleSearchChange = (value) => {
+    if (searchValue !== value) {
+      setSearchValue(value);
+      
+      // Use a delayed version to prevent excessive updates
+      if (searchDebounceTimer.current) {
+        clearTimeout(searchDebounceTimer.current);
+      }
+      
+      searchDebounceTimer.current = setTimeout(() => {
+        onSearch(value);
+      }, 300);
+    }
   };
 
-  const handleClearSearch = (e) => {
-    e.preventDefault(); // Prevent default behavior
+  // Add debounce timer ref
+  const searchDebounceTimer = useRef(null);
+
+  const handleClearSearch = () => {
     setSearchValue('');
+    if (searchDebounceTimer.current) {
+      clearTimeout(searchDebounceTimer.current);
+    }
     onSearch('');
   };
 
@@ -250,41 +402,18 @@ const Sidebar = ({ onSearch, onFilter, onSort, onPriceRangeChange, activeCategor
         style={{ paddingTop: "4rem" }}
       >
         <div className="p-6">
-          <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+          <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             Search Courses
           </label>
-          <div className="relative mb-6 group">
-            {/* Using div instead of form to prevent accidental submissions */}
-            <div className="relative">
-              <input
-                id="search"
-                type="text"
-                placeholder="What do you want to learn?"
-                value={searchValue}
-                onChange={handleSearchChange}
-                onKeyDown={(e) => {
-                  // Prevent form submission on Enter key
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                  }
-                }}
-                className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 group-hover:shadow-md"
-              />
-              {searchValue && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-400 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
-          </div>
+          
+          <SearchInputBox 
+            value={searchValue} 
+            onChange={handleSearchChange} 
+            onClear={handleClearSearch} 
+          />
           
           {/* Improved price range slider */}
           {renderPriceRangeSlider()}

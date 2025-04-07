@@ -3,18 +3,21 @@ import offlineService from '../services/offlineService';
 
 const ConnectionStatus = () => {
   const [status, setStatus] = useState({
-    isOnline: true,
-    isServerAvailable: true
+    isOnline: navigator.onLine,
+    isServerAvailable: false
   });
   
   const [showToast, setShowToast] = useState(false);
   const [pendingOperations, setPendingOperations] = useState(0);
+  const [lastManualCheck, setLastManualCheck] = useState(0);
 
   useEffect(() => {
     // Register for status updates
     const unsubscribe = offlineService.addListener(newStatus => {
+      console.log("Connection status changed:", newStatus);
       setStatus(newStatus);
-      // Show the toast on status change
+      
+      // Show the toast on status change to offline
       if (!newStatus.isOnline || !newStatus.isServerAvailable) {
         setShowToast(true);
       }
@@ -35,7 +38,7 @@ const ConnectionStatus = () => {
       clearInterval(interval);
     };
   }, []);
-
+  
   // Determine what status indicator to show
   const getStatusIndicator = () => {
     if (!status.isOnline) {
@@ -67,21 +70,45 @@ const ConnectionStatus = () => {
     setShowToast(false);
   };
   
-  const handleManualSync = () => {
-    if (status.isOnline && status.isServerAvailable) {
-      offlineService.syncOfflineOperations();
+  const handleManualSync = async () => {
+    // Prevent multiple rapid clicks - only allow check every 2 seconds
+    const now = Date.now();
+    if (now - lastManualCheck < 2000) {
+      return;
+    }
+    
+    setLastManualCheck(now);
+    
+    if (status.isOnline) {
+      const serverAvailable = await offlineService.manualReconnect();
+      
+      if (serverAvailable && pendingOperations > 0) {
+        try {
+          await offlineService.syncOperations();
+          setPendingOperations(0);
+        } catch (err) {
+          console.error("Error syncing operations:", err);
+        }
+      }
     }
   };
 
   return (
     <>
       <div className="fixed bottom-4 right-4 z-50">
-        <div className={`flex items-center space-x-2 px-3 py-1 rounded-full shadow-md bg-white border border-${indicator.color}-500`}>
+        <div 
+          className={`flex items-center space-x-2 px-3 py-1 rounded-full shadow-md bg-white border border-${indicator.color}-500`}
+          onClick={handleManualSync}
+          style={{ cursor: 'pointer' }}
+        >
           <div className={`w-3 h-3 rounded-full bg-${indicator.color}-500`}></div>
           <span className="text-sm font-medium">{indicator.message}</span>
           {pendingOperations > 0 && status.isOnline && status.isServerAvailable && (
             <button 
-              onClick={handleManualSync} 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleManualSync();
+              }} 
               className="text-blue-500 text-xs ml-1 hover:underline"
             >
               Sync now
@@ -110,6 +137,14 @@ const ConnectionStatus = () => {
               <p className="text-sm text-blue-600">
                 {pendingOperations} pending {pendingOperations === 1 ? 'change' : 'changes'} will sync automatically when connection is restored.
               </p>
+            )}
+            {(!status.isServerAvailable && status.isOnline) && (
+              <button 
+                onClick={handleManualSync} 
+                className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+              >
+                Try Reconnect Now
+              </button>
             )}
           </div>
         </div>

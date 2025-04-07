@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { courseService } from '../services/courseService';
@@ -8,7 +8,7 @@ import Charts from '../components/Charts';
 import { SimulationContext } from '../App';
 import { getCategoryColor } from '../utils/categoryColors';
 import { PRICE_THRESHOLDS } from '../utils/constants';
-import offlineService from '../services/offlineService';
+import offlineService, { RECONNECTION_INTERVAL } from '../services/offlineService';
 
 const Home = ({ onEdit }) => {
   const [courses, setCourses] = useState([]);
@@ -24,6 +24,7 @@ const Home = ({ onEdit }) => {
   const [itemsPerPage, setItemsPerPage] = useState(6); // Smaller default page size (changed from 10)
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   const getPriceHighlight = (price, courses) => {
     if (!courses || courses.length <= 1) return null;
@@ -146,20 +147,48 @@ const Home = ({ onEdit }) => {
     toast.info("Manually refreshing courses...");
   };
 
-  const handleSearch = (value) => {
+  const handleTryReconnect = useCallback(async () => {
+    try {
+      setIsReconnecting(true);
+      console.log("Manually triggering reconnect from Home page");
+      
+      // Dispatch global event to ensure all components know we're trying to reconnect
+      window.dispatchEvent(new Event('reconnectServer'));
+      
+      // Call the manual reconnect directly
+      const success = await offlineService.manualReconnect();
+      
+      if (success) {
+        toast.success("Successfully reconnected to server!");
+        forceRefreshCounter.current += 1;
+        // Force a re-render without changing the page
+        setCurrentPage(currentPage);
+      } else {
+        toast.error("Could not connect to server. Please try again later.");
+      }
+    } catch (error) {
+      console.error("Error during reconnection attempt:", error);
+      toast.error("Connection error. Please check your network.");
+    } finally {
+      setIsReconnecting(false);
+    }
+  }, [currentPage]);
+
+  const handleSearch = useCallback((value) => {
+    console.log(`Search term changed to: "${value}"`);
     setSearch(value);
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handleFilter = (value) => {
+  const handleFilter = useCallback((value) => {
     setCategory(value);
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handleSort = (value) => {
+  const handleSort = useCallback((value) => {
     setSort(value);
     setCurrentPage(1);
-  };
+  }, []);
 
   const handlePriceRangeChange = useCallback((min, max) => {
     setPriceRange(prevState => {
@@ -176,6 +205,16 @@ const Home = ({ onEdit }) => {
 
   const currentCourses = courses;
 
+  const MemoizedSidebar = useMemo(() => (
+    <Sidebar 
+      onSearch={handleSearch} 
+      onFilter={handleFilter} 
+      onSort={handleSort}
+      onPriceRangeChange={handlePriceRangeChange}
+      activeCategory={category} 
+    />
+  ), [handleSearch, handleFilter, handleSort, handlePriceRangeChange, category]);
+
   if (loading) return (
     <div className="flex justify-center items-center h-screen">
       <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600"></div>
@@ -185,13 +224,7 @@ const Home = ({ onEdit }) => {
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      <Sidebar 
-        onSearch={handleSearch} 
-        onFilter={handleFilter} 
-        onSort={handleSort}
-        onPriceRangeChange={handlePriceRangeChange}
-        activeCategory={category} 
-      />
+      {MemoizedSidebar}
       
       <div className="flex-1 md:ml-64 px-4 py-20">
         <div className="max-w-7xl mx-auto">
@@ -226,11 +259,12 @@ const Home = ({ onEdit }) => {
               </Link>
               <button 
                 onClick={toggleSimulation} 
+                disabled={isOfflineMode}
                 className={`px-4 py-2 rounded-lg flex items-center shadow-md ${
                   isSimulationRunning 
                     ? 'bg-red-500 hover:bg-red-600 text-white' 
                     : 'bg-green-500 hover:bg-green-600 text-white'
-                }`}
+                } ${isOfflineMode ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {isSimulationRunning ? (
                   <>
@@ -245,7 +279,7 @@ const Home = ({ onEdit }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    Start Simulation
+                    {isOfflineMode ? "Simulation Unavailable" : "Start Simulation"}
                   </>
                 )}
               </button>
@@ -264,10 +298,28 @@ const Home = ({ onEdit }) => {
           
           {isOfflineMode && (
             <div className="mb-4 p-3 bg-yellow-100 border border-yellow-300 rounded-md">
-              <p className="text-yellow-800">
-                <strong>Offline Mode:</strong> You're currently working offline. 
-                Your changes will be saved locally and synchronized when you reconnect.
-              </p>
+              <div className="flex justify-between items-center">
+                <p className="text-yellow-800">
+                  <strong>Offline Mode:</strong> You're currently working offline. 
+                  Your changes will be saved locally and synchronized when you reconnect.
+                  <span className="ml-2 text-xs italic">Auto-reconnect attempt every {Math.round(RECONNECTION_INTERVAL/1000)} seconds</span>
+                </p>
+                <button 
+                  onClick={handleTryReconnect}
+                  disabled={isReconnecting}
+                  className="px-3 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 disabled:opacity-50"
+                >
+                  {isReconnecting ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Connecting...
+                    </span>
+                  ) : "Try Reconnect"}
+                </button>
+              </div>
             </div>
           )}
           

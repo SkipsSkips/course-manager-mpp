@@ -99,6 +99,20 @@ function AppContent() {
   };
 
   useEffect(() => {
+    // Make sure offlineService is initialized immediately
+    const initializeOfflineService = async () => {
+      try {
+        // Import dynamically to avoid circular dependencies
+        const offlineServiceModule = await import('./services/offlineService');
+        offlineServiceModule.default.initialize();
+        console.log("Offline service initialized from App component");
+      } catch (err) {
+        console.error("Error initializing offline service:", err);
+      }
+    };
+    
+    initializeOfflineService();
+
     // Check simulation status when component mounts
     const checkSimulationStatus = async () => {
       try {
@@ -113,27 +127,40 @@ function AppContent() {
     checkSimulationStatus();
     
     // Setup SSE for real-time updates
-    const eventSource = new EventSource('/api/courses/events');
+    let eventSource = null;
     
-    eventSource.addEventListener('courseUpdated', (event) => {
-      const data = JSON.parse(event.data);
-      if (data.action === 'add') {
-        toast.info(data.message || "New course added");
-      } else if (data.action === 'delete') {
-        toast.warn(data.message || "Course deleted");
-      }
+    try {
+      eventSource = new EventSource('/api/courses/events');
       
-      // Trigger refresh
-      window.dispatchEvent(new Event('courseUpdated'));
-    });
-    
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      eventSource.close();
-    };
+      eventSource.addEventListener('courseUpdated', (event) => {
+        const data = JSON.parse(event.data);
+        if (data.action === 'add') {
+          toast.info(data.message || "New course added");
+        } else if (data.action === 'delete') {
+          toast.warn(data.message || "Course deleted");
+        }
+        
+        // Trigger refresh
+        window.dispatchEvent(new Event('courseUpdated'));
+      });
+      
+      eventSource.onerror = (error) => {
+        console.error('SSE connection error:', error.type);
+        
+        // Don't try to reconnect when offline
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+      };
+    } catch (err) {
+      console.log("EventSource setup failed - server may be offline");
+    }
     
     return () => {
-      eventSource.close();
+      if (eventSource) {
+        eventSource.close();
+      }
     };
   }, []);
 

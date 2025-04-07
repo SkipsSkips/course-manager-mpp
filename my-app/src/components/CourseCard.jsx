@@ -23,9 +23,6 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
   } else if (highlight === 'average-priced') {
     borderClass = 'border-l-4 border-yellow-500';
   }
-
-  // Use base64 encoded default image
-  const defaultImage = defaultImageBase64;
   
   // Get background color for category
   const categoryBgColor = getCategoryColor(course.category);
@@ -44,13 +41,13 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
           <img 
             src={
               !course.image || course.image === 'IMAGE_PLACEHOLDER' || course.image === 'defaultImageBase64'
-                ? defaultImageBase64 // Use the base64 encoded default image
+                ? defaultImageBase64 
                 : course.image
             }
             alt={course.title}
-            className="w-full h-40 object-cover rounded-t-lg"
+            className="w-full h-56 md:h-full object-cover object-center"
             onError={(e) => {
-              e.target.src = defaultImageBase64; // Use defaultImageBase64 as fallback
+              e.target.src = defaultImageBase64;
             }}
           />
           {/* Category badge with specific color */}
@@ -112,8 +109,6 @@ const CourseCard = ({ course, onDelete, onEdit, highlight }) => {
               </button>
             </div>
           </div>
-          
-          {/* Removed the decorative ripple element that was here */}
         </div>
       </div>
     </div>
