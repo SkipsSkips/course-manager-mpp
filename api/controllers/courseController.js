@@ -6,7 +6,7 @@ const { broadcastEvent } = require('../services/eventService'); // This creates 
 const getCourses = (req, res) => {
   try {
     // DEBUG: Log the raw courses first
-    console.log('Raw courses in database:', coursesData.courses.length, coursesData.courses.map(c => c.id));
+    console.log('Raw courses:', coursesData.courses.length, coursesData.courses.map(c => c.id));
     
     // Always return a fresh deep copy to prevent reference issues
     let filteredCourses = JSON.parse(JSON.stringify(coursesData.courses));

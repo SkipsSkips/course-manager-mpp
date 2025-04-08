@@ -104,7 +104,7 @@ const Home = ({ onEdit }) => {
     };
 
     fetchData();
-  }, [currentPage, itemsPerPage, search, category, sort, priceRange.min, priceRange.max]); // All dependencies that should trigger a fetch
+  }, [currentPage, itemsPerPage, search, category, sort, priceRange.min, priceRange.max, forceRefreshCounter.current]); // Added forceRefreshCounter.current to dependencies
 
   useEffect(() => {
     const handleCourseUpdate = (e) => {
@@ -125,12 +125,30 @@ const Home = ({ onEdit }) => {
       forceRefreshCounter.current += 1;
     };
 
+    const handleSyncComplete = (e) => {
+      console.log("Sync operations complete", e.detail);
+      // Force refresh data after sync completes
+      forceRefreshCounter.current += 1;
+      
+      // Display notification about sync status
+      if (e.detail?.success) {
+        toast.success(`Successfully synchronized ${e.detail.results.length} offline changes`);
+      } else {
+        toast.warning(`Synchronized with some errors. Some changes may need to be re-applied.`);
+      }
+      
+      // Force a re-render to update the UI with the latest data
+      setCurrentPage(currentPage);
+    };
+
     window.addEventListener('courseUpdated', handleCourseUpdate);
+    window.addEventListener('syncOperationsComplete', handleSyncComplete);
 
     return () => {
       window.removeEventListener('courseUpdated', handleCourseUpdate);
+      window.removeEventListener('syncOperationsComplete', handleSyncComplete);
     };
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     const unsubscribe = offlineService.addListener(status => {

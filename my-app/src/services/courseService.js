@@ -127,6 +127,16 @@ export const courseService = {
         }
       });
       
+      // ALWAYS include a random number to bust cache
+      queryParams.append('_nocache', Math.random());
+      // Ensure we don't hit any pagination limits
+      if (!queryParams.has('limit')) {
+        queryParams.append('limit', 1000); // Set a very high limit to get all courses
+      }
+      
+      const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      console.log(`Fetching courses with query: ${query}`);
+      
       // Use local data if not using remote backend or server unavailable
       if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
         console.log('Using local data for courses');
@@ -153,26 +163,6 @@ export const courseService = {
         console.log(`Paginated ${allCourses.length} courses to ${paginatedCourses.length} courses. Page ${page}/${Math.ceil(allCourses.length / limit)}`);
         
         return { courses: paginatedCourses, pagination };
-      }
-      
-      // ALWAYS include a random number to bust cache
-      queryParams.append('_nocache', Math.random());
-      
-      const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
-      console.log(`Fetching courses with query: ${query}`);
-      
-      // Check if we're offline or server is unavailable
-      if (!offlineService.isOnline || !offlineService.isServerAvailable) {
-        console.log('Offline mode: Using local storage data');
-        return { 
-          courses: courseService.getOfflineCourses(filters),
-          pagination: {
-            page: parseInt(filters.page) || 1,
-            limit: parseInt(filters.limit) || 10,
-            totalItems: courseService.getOfflineCourses().length,
-            totalPages: Math.ceil(courseService.getOfflineCourses().length / (parseInt(filters.limit) || 10))
-          }
-        };
       }
       
       const response = await fetch(`/api/courses${query}`, {
@@ -388,7 +378,7 @@ export const courseService = {
         
         // Find highest ID and increment by 1
         const highestId = Math.max(...courses.map(c => typeof c.id === 'number' ? c.id : 0), 0);
-        const newId = highestId + 1;
+        const newId = `temp_${new Date().getTime()}`; // Use temp_ prefix for offline created courses
         
         // Create new course with generated ID
         const newCourse = {
@@ -401,6 +391,13 @@ export const courseService = {
         // Add to local storage
         courses.push(newCourse);
         safelyStoreInLocalStorage('cached_courses', courses);
+        
+        // Save as pending operation to be synced later
+        console.log('Offline mode: Saving add operation for later sync');
+        offlineService.saveOperation({
+          type: 'add',
+          course: course // Original course without the temp_ ID
+        });
         
         // Notify UI
         window.dispatchEvent(new CustomEvent('courseUpdated', {

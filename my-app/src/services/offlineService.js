@@ -407,15 +407,22 @@ const offlineService = {
               detail: { timestamp: Date.now(), manual: true }
             }));
             
-            // Try to sync pending operations
+            // Try to sync pending operations with better error handling
             if (offlineService.hasPendingOperations()) {
               console.log('Attempting to sync pending operations...');
               try {
-                await offlineService.syncOperations();
-                console.log('Sync successful!');
+                const syncResult = await offlineService.syncOperations();
+                if (syncResult.success) {
+                  console.log('Sync successful!', syncResult);
+                } else {
+                  console.error('Sync completed with errors:', syncResult);
+                }
               } catch (syncErr) {
-                console.error('Error syncing operations:', syncErr);
+                console.error('Error during sync operations:', syncErr);
+                // Don't let sync errors affect the reconnection status
               }
+            } else {
+              console.log('No pending operations to sync');
             }
             
             return true;
@@ -527,37 +534,160 @@ const offlineService = {
       return { success: true, message: 'No operations to sync' };
     }
     
+    console.log(`Syncing ${operations.length} offline operations...`, operations);
+    
     // Process each operation
     const results = [];
+    let refreshNeeded = false;
+    
     for (const operation of operations) {
       try {
+        let response;
+        
         switch (operation.type) {
           case 'add':
+            // Special handling for temp IDs - ensure we're not using them
+            const courseToAdd = { ...operation.course };
+            if (courseToAdd.id && typeof courseToAdd.id === 'string' && courseToAdd.id.startsWith('temp_')) {
+              delete courseToAdd.id; // Let the server assign a proper ID
+            }
+            
             // Call API to add course
-            await fetch('/api/courses', {
+            console.log(`Syncing ADD operation:`, courseToAdd);
+            response = await fetch('/api/courses', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(operation.course),
+              headers: { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
+              },
+              body: JSON.stringify(courseToAdd),
             });
-            results.push({ success: true, operation });
+            
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || `Server returned ${response.status}`);
+            }
+            
+            const addedCourse = await response.json();
+            results.push({ success: true, operation, serverData: addedCourse });
+            refreshNeeded = true;
+            
+            // Also update local cached_courses immediately with proper cleanup
+            try {
+              const cachedData = localStorage.getItem('cached_courses');
+              if (cachedData) {
+                const courses = JSON.parse(cachedData);
+                
+                // First remove ALL temp entries that could be duplicates
+                const updatedCourses = courses.filter(c => 
+                  !(typeof c.id === 'string' && c.id.startsWith('temp_'))
+                );
+                
+                // Add the server-assigned course 
+                updatedCourses.push(addedCourse);
+                
+                // Save back to storage
+                localStorage.setItem('cached_courses', JSON.stringify(updatedCourses));
+                console.log('Updated local cache after sync - added course with ID:', addedCourse.id);
+              }
+            } catch (cacheErr) {
+              console.error('Error updating local cache after add sync:', cacheErr);
+            }
+            
+            // Dispatch event to notify UI about this specific change
+            window.dispatchEvent(new CustomEvent('courseUpdated', {
+              detail: { 
+                action: 'add', 
+                course: addedCourse,
+                synced: true 
+              }
+            }));
             break;
             
           case 'update':
             // Call API to update course
-            await fetch(`/api/courses/${operation.id}`, {
+            console.log(`Syncing UPDATE operation:`, operation.id, operation.course);
+            response = await fetch(`/api/courses/${operation.id}`, {
               method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
+              },
               body: JSON.stringify(operation.course),
             });
-            results.push({ success: true, operation });
+            
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || `Server returned ${response.status}`);
+            }
+            
+            const updatedCourse = await response.json();
+            results.push({ success: true, operation, serverData: updatedCourse });
+            refreshNeeded = true;
+            
+            // Also update local cached_courses immediately
+            try {
+              const cachedData = localStorage.getItem('cached_courses');
+              if (cachedData) {
+                const courses = JSON.parse(cachedData);
+                // Update the course in the cache
+                const updatedCourses = courses.map(c => 
+                  c.id === operation.id ? updatedCourse : c
+                );
+                localStorage.setItem('cached_courses', JSON.stringify(updatedCourses));
+              }
+            } catch (cacheErr) {
+              console.error('Error updating local cache after update sync:', cacheErr);
+            }
+            
+            // Dispatch event to notify UI about this specific change
+            window.dispatchEvent(new CustomEvent('courseUpdated', {
+              detail: { 
+                action: 'update', 
+                course: updatedCourse,
+                synced: true 
+              }
+            }));
             break;
             
           case 'delete':
             // Call API to delete course
-            await fetch(`/api/courses/${operation.id}`, {
+            console.log(`Syncing DELETE operation:`, operation.id);
+            response = await fetch(`/api/courses/${operation.id}`, {
               method: 'DELETE',
+              headers: { 'Cache-Control': 'no-cache' }
             });
+            
+            if (!response.ok && response.status !== 404) {
+              // 404 is acceptable for delete operations (already deleted)
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || `Server returned ${response.status}`);
+            }
+            
             results.push({ success: true, operation });
+            refreshNeeded = true;
+            
+            // Also update local cached_courses immediately
+            try {
+              const cachedData = localStorage.getItem('cached_courses');
+              if (cachedData) {
+                const courses = JSON.parse(cachedData);
+                // Remove the deleted course from the cache
+                const updatedCourses = courses.filter(c => c.id !== operation.id);
+                localStorage.setItem('cached_courses', JSON.stringify(updatedCourses));
+              }
+            } catch (cacheErr) {
+              console.error('Error updating local cache after delete sync:', cacheErr);
+            }
+            
+            // Dispatch event to notify UI about this specific change
+            window.dispatchEvent(new CustomEvent('courseUpdated', {
+              detail: { 
+                action: 'delete', 
+                id: operation.id,
+                synced: true 
+              }
+            }));
             break;
             
           default:
@@ -571,6 +701,7 @@ const offlineService = {
             break;
         }
       } catch (error) {
+        console.error(`Failed to sync operation:`, operation, error);
         results.push({ success: false, operation, error: error.message });
       }
     }
@@ -578,10 +709,36 @@ const offlineService = {
     // Clear operations if all successful
     if (results.every(r => r.success)) {
       clearOperations();
+      console.log('All operations synced successfully and cleared from storage');
     } else {
       // Keep only failed operations
       const failedOps = operations.filter((op, i) => !results[i].success);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(failedOps));
+      console.log(`${failedOps.length} operations failed to sync and will be retried later`);
+    }
+    
+    // Force a reload of courses from server after successful sync
+    if (refreshNeeded) {
+      console.log('Sync completed successfully - triggering course refresh');
+      
+      // Add a more aggressive refresh approach
+      setTimeout(() => {
+        // Force a complete data refresh rather than just an event
+        window.dispatchEvent(new CustomEvent('syncOperationsComplete', {
+          detail: {
+            timestamp: Date.now(),
+            results: results,
+            success: results.every(r => r.success),
+            refreshNeeded: true,
+            forceFullRefresh: true
+          }
+        }));
+        
+        // Also dispatch the standard event for compatibility
+        window.dispatchEvent(new CustomEvent('courseUpdated', {
+          detail: { action: 'refresh', timestamp: Date.now() }
+        }));
+      }, 100);
     }
     
     return { success: true, results };
