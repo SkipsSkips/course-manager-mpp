@@ -13,7 +13,6 @@ import { courseService } from './services/courseService';
 import { generateMockCourses } from './utils/generateMockCourses';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import ConnectionStatus from './components/ConnectionStatus';
-import BackendToggle from './components/BackendToggle';
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -86,11 +85,21 @@ function AppContent() {
         await fetch('/api/simulation/stop', { method: 'POST' });
         setIsSimulationRunning(false);
         toast.info("Course simulation stopped");
+        
+        // Dispatch custom event for charts to update
+        window.dispatchEvent(new CustomEvent('simulationStateChanged', { 
+          detail: { status: 'stopped', timestamp: Date.now() } 
+        }));
       } else {
         // Start simulation
         await fetch('/api/simulation/start', { method: 'POST' });
         setIsSimulationRunning(true);
         toast.info("Course simulation started");
+        
+        // Dispatch custom event for charts to update
+        window.dispatchEvent(new CustomEvent('simulationStateChanged', { 
+          detail: { status: 'started', timestamp: Date.now() } 
+        }));
       }
     } catch (error) {
       console.error("Error toggling simulation:", error);
@@ -208,7 +217,6 @@ function AppContent() {
           pauseOnHover
           theme="light"
         />
-        <BackendToggle />
         <ConnectionStatus />
       </div>
     </SimulationContext.Provider>
