@@ -1,7 +1,7 @@
 {
-  "name": "course-manager",
+  "name": "mppbackend",
   "version": "1.0.0",
-  "description": "Course Manager with RESTful API",
+  "description": "Backend for MPP application",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,7 +10,14 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install-all": "npm i && cd my-app && npm i",
     "build": "cd my-app && npm run build",
-    "postinstall": "npm run install-all"
+    "postinstall": "npm run install-all",
+    "test": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ]
   },
   "dependencies": {
     "@faker-js/faker": "^9.6.0",
@@ -21,6 +28,8 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.0",
-    "nodemon": "^2.0.22"
+    "nodemon": "^2.0.22",
+    "jest": "^29.5.0",
+    "supertest": "^6.3.3"
   }
 }
