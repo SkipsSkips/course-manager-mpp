@@ -17,22 +17,25 @@ class DatabaseService {
       await this.sequelize.authenticate();
       console.log('✅ Database connection established successfully');
 
-      // Initialize models
-      await this.initializeModels();
-
-      // Sync database
-      await this.sequelize.sync({ force: false });
-      console.log('✅ Database synchronized');
-
+      // Sync models in the correct order (referenced tables first)
+      await this.sequelize.sync({ 
+        force: false,
+        alter: false,
+        // Define explicit order
+        order: ['Category', 'Instructor', 'Course', 'User', 'Enrollment']
+      });
+      
+      console.log('✅ Database synchronized successfully');
+      
       // Seed initial data if tables are empty
       await this.seedInitialData();
-
+      console.log('✅ Initial data seeded successfully');
+      
       this.isInitialized = true;
       return true;
     } catch (error) {
-      console.error('❌ Database initialization failed:', error);
-      this.isInitialized = false;
-      return false;
+      console.error('❌ Database initialization failed:', error.message);
+      throw error;
     }
   }
 
