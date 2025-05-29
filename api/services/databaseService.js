@@ -17,7 +17,17 @@ class DatabaseService {
       await this.sequelize.authenticate();
       console.log('✅ Database connection established successfully');
 
-      // Sync models in the correct order (referenced tables first)
+      // Remove or comment out this section:
+      /*
+      // Serve static files from React app build
+      if (process.env.NODE_ENV === 'production') {
+        app.use(express.static(path.join(__dirname, 'my-app/build')));
+        
+        app.get('*', (req, res) => {
+          res.sendFile(path.join(__dirname, 'my-app/build/index.html'));
+        });
+      }
+      */      // Sync models in the correct order (referenced tables first)
       await this.sequelize.sync({ 
         force: false,
         alter: false,
@@ -162,71 +172,98 @@ class DatabaseService {
 
   async seedInitialData() {
     try {
-      const { coursesData } = require('../models/courseModel');
-      const { defaultImageBase64 } = require('../utils/defaultImage');
-
-      // Check if we already have data
-      const existingCourses = await this.models.Course.count();
-      if (existingCourses > 0) {
-        console.log(`📚 Database already contains ${existingCourses} courses`);
+      // Check if data already exists before seeding
+      const existingCourses = await this.models.Course.findAll();
+      if (existingCourses.length > 0) {
+        console.log('📊 Data already exists, skipping seed');
         return;
       }
 
       console.log('🌱 Seeding initial data...');
 
-      // Create categories and instructors maps
-      const categoryMap = new Map();
-      const instructorMap = new Map();
+      // Seed categories first
+      const categories = [
+        { name: 'Programming', description: 'Web development and programming courses' },
+        { name: 'Design', description: 'UI/UX and graphic design courses' },
+        { name: 'Marketing', description: 'Digital marketing and business courses' },
+        { name: 'Data Science', description: 'Data analysis and machine learning courses' }
+      ];
 
-      // Process all courses from coursesData
-      for (const courseData of coursesData.courses) {
-        // Create or get category
-        if (!categoryMap.has(courseData.category)) {
-          const [category] = await this.models.Category.findOrCreate({
-            where: { name: courseData.category },
-            defaults: {
-              name: courseData.category,
-              description: `Courses related to ${courseData.category}`,
-              isActive: true
-            }
-          });
-          categoryMap.set(courseData.category, category);
+      const createdCategories = await this.models.Category.bulkCreate(categories, {
+        returning: true,
+        ignoreDuplicates: true
+      });
+
+      // Seed instructors
+      const instructors = [
+        { name: 'John Doe', email: 'john@example.com', bio: 'Senior Web Developer' },
+        { name: 'Emily Johnson', email: 'emily@example.com', bio: 'JavaScript Expert' },
+        { name: 'Jane Smith', email: 'jane@example.com', bio: 'UX/UI Designer' },
+        { name: 'Sarah Johnson', email: 'sarah@example.com', bio: 'Marketing Specialist' }
+      ];
+
+      const createdInstructors = await this.models.Instructor.bulkCreate(instructors, {
+        returning: true,
+        ignoreDuplicates: true
+      });
+
+      // Seed courses
+      const courses = [
+        {
+          title: 'Introduction to Web Development',
+          description: 'Learn the basics of web development',
+          duration: '4h 30m',
+          lessons: 12,
+          students: 245,
+          rating: 4.8,
+          price: 49.99,
+          categoryId: createdCategories[0]?.id || 1,
+          instructorId: createdInstructors[0]?.id || 1,
+          image: null
+        },
+        {
+          title: 'Advanced JavaScript Techniques',
+          description: 'Master advanced JavaScript concepts',
+          duration: '6h 15m',
+          lessons: 15,
+          students: 310,
+          rating: 4.9,
+          price: 69.99,
+          categoryId: createdCategories[0]?.id || 1,
+          instructorId: createdInstructors[1]?.id || 2,
+          image: null
+        },
+        {
+          title: 'UI/UX Design Basics',
+          description: 'Learn design fundamentals',
+          duration: '3h 15m',
+          lessons: 8,
+          students: 187,
+          rating: 4.6,
+          price: 39.99,
+          categoryId: createdCategories[1]?.id || 2,
+          instructorId: createdInstructors[2]?.id || 3,
+          image: null
+        },
+        {
+          title: 'Digital Marketing 101',
+          description: 'Master digital marketing strategies',
+          duration: '3h 0m',
+          lessons: 10,
+          students: 320,
+          rating: 4.7,
+          price: 59.99,
+          categoryId: createdCategories[2]?.id || 3,
+          instructorId: createdInstructors[3]?.id || 4,
+          image: null
         }
+      ];
 
-        // Create or get instructor
-        if (!instructorMap.has(courseData.instructor)) {
-          const [instructor] = await this.models.Instructor.findOrCreate({
-            where: { name: courseData.instructor },
-            defaults: {
-              name: courseData.instructor,
-              email: `${courseData.instructor.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-              rating: 4.5,
-              isActive: true
-            }
-          });
-          instructorMap.set(courseData.instructor, instructor);
-        }
+      await this.models.Course.bulkCreate(courses, {
+        ignoreDuplicates: true
+      });
 
-        // Create course
-        await this.models.Course.create({
-          title: courseData.title,
-          lessons: courseData.lessons,
-          duration: courseData.duration,
-          students: courseData.students,
-          rating: courseData.rating,
-          price: courseData.price,
-          image: courseData.image || defaultImageBase64,
-          categoryId: categoryMap.get(courseData.category).id,
-          instructorId: instructorMap.get(courseData.instructor).id,
-          isActive: true
-        });
-      }
-
-      const totalCourses = await this.models.Course.count();
-      const totalCategories = await this.models.Category.count();
-      const totalInstructors = await this.models.Instructor.count();
-
-      console.log(`✅ Seeded ${totalCourses} courses, ${totalCategories} categories, ${totalInstructors} instructors`);
+      console.log('✅ Initial data seeded successfully');
     } catch (error) {
       console.error('❌ Error seeding data:', error);
       throw error;
