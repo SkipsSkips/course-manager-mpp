@@ -17,27 +17,19 @@ class DatabaseService {
       await this.sequelize.authenticate();
       console.log('✅ Database connection established successfully');
 
-      // Remove or comment out this section:
-      /*
-      // Serve static files from React app build
-      if (process.env.NODE_ENV === 'production') {
-        app.use(express.static(path.join(__dirname, 'my-app/build')));
-        
-        app.get('*', (req, res) => {
-          res.sendFile(path.join(__dirname, 'my-app/build/index.html'));
-        });
-      }
-      */      // Sync models in the correct order (referenced tables first)
+      // Initialize models FIRST
+      await this.initializeModels();
+      console.log('✅ Models initialized successfully');
+
+      // THEN sync the database
       await this.sequelize.sync({ 
         force: false,
-        alter: false,
-        // Define explicit order
-        order: ['Category', 'Instructor', 'Course', 'User', 'Enrollment']
+        alter: false
       });
       
       console.log('✅ Database synchronized successfully');
       
-      // Seed initial data if tables are empty
+      // FINALLY seed initial data
       await this.seedInitialData();
       console.log('✅ Initial data seeded successfully');
       
@@ -87,6 +79,10 @@ class DatabaseService {
       },
       email: {
         type: DataTypes.STRING,
+        allowNull: true
+      },
+      bio: {
+        type: DataTypes.TEXT,
         allowNull: true
       },
       rating: {
