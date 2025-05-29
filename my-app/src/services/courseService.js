@@ -100,276 +100,68 @@ initializeLocalData();
 export const courseService = {
   getCourses: async (filters = {}) => {
     try {
-      // Convert filters object to query string
+      if (!API_CONFIG.useRemoteBackend) {
+        return courseService.getOfflineCourses(filters);
+      }
+
       const queryParams = new URLSearchParams();
-      
-      // Add all filters to the query string - properly convert objects to primitive values
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined) {
-          // Special handling for priceMin and priceMax to make sure they're numbers
-          if (key === 'priceMin' || key === 'priceMax') {
-            // Make sure it's a number before adding to query
-            if (typeof value === 'number' || (typeof value === 'string' && !isNaN(Number(value)))) {
-              queryParams.append(key, Number(value));
-            }
-          } 
-          // Handle object values - prevent [object Object] in URL
-          else if (typeof value === 'object' && value !== null) {
-            if (key === 'timestamp' || key === 'forceCacheKey') {
-              queryParams.append(key, value.toString());
-            }
-            // Skip objects that shouldn't be in the URL
-          } 
-          // Normal case - add the value directly
-          else {
-            queryParams.append(key, value);
-          }
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
         }
       });
-      
-      // ALWAYS include a random number to bust cache
-      queryParams.append('_nocache', Math.random());
-      // Ensure we don't hit any pagination limits
-      if (!queryParams.has('limit')) {
-        queryParams.append('limit', 1000); // Set a very high limit to get all courses
-      }
-      
-      const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
-      console.log(`Fetching courses with query: ${query}`);
-      
-      // Use local data if not using remote backend or server unavailable
-      if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
-        console.log('Using local data for courses');
-        const allCourses = courseService.getOfflineCourses(filters);
-        
-        // Apply pagination manually for local data
-        const page = parseInt(filters.page) || 1;
-        const limit = parseInt(filters.limit) || allCourses.length;
-        const startIndex = (page - 1) * limit;
-        const endIndex = Math.min(startIndex + limit, allCourses.length);
-        
-        const paginatedCourses = allCourses.slice(startIndex, endIndex);
-        
-        // Format response like the API would
-        const pagination = {
-          page: page,
-          limit: limit,
-          totalItems: allCourses.length,
-          totalPages: Math.ceil(allCourses.length / limit),
-          hasNextPage: endIndex < allCourses.length,
-          hasPrevPage: page > 1
-        };
-        
-        console.log(`Paginated ${allCourses.length} courses to ${paginatedCourses.length} courses. Page ${page}/${Math.ceil(allCourses.length / limit)}`);
-        
-        return { courses: paginatedCourses, pagination };
-      }
-      
-      const response = await fetch(`/api/courses${query}`, {
+
+      // Don't add any default limits - let backend return all courses
+      const url = `${API_CONFIG.baseUrl}/api/courses${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      console.log('🔍 Fetching ALL courses from:', url);
+      console.log('🔍 Filters applied:', filters);
+
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        },
-        // Force reload from server, not cache
-        cache: 'no-store'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Failed to fetch courses: ${response.status} ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
-      // Handle new response format that includes pagination
-      const courses = data.courses || data;
+      console.log('✅ API Response received:', {
+        coursesCount: data.courses?.length || 0,
+        totalItems: data.pagination?.totalItems || 0,
+        category: filters.category,
+        showingAllCourses: !filters.limit,
+        courseIds: data.courses?.map(c => c.id) || []
+      });
+
+      // Always return courses array, even if wrapped in pagination
+      const courses = data.courses || data || [];
       const pagination = data.pagination || null;
+
+      // Cache the results with timestamp for debugging
+      const cacheData = {
+        courses,
+        timestamp: new Date().toISOString(),
+        filters: filters,
+        totalFetched: courses.length
+      };
+      safelyStoreInLocalStorage('cached_courses', cacheData);
       
-      if (!Array.isArray(courses)) {
-        console.error('Received non-array courses data:', courses);
-        return { courses: [], pagination: null };
-      }
-      
-      console.log(`Received ${courses.length} courses from API with IDs:`, courses.map(c => c.id));
-      
-      // Store courses in localStorage with image stripping to reduce size
-      safelyStoreInLocalStorage('cached_courses', courses);
-      
-      // Return the data in a format compatible with the rest of the application
       return { courses, pagination };
     } catch (error) {
-      console.error('Error fetching courses:', error);
-      
-      // If fetch fails, we might be offline - try to use cached data
+      console.error('❌ Error fetching courses:', error);
       return courseService.getOfflineCourses(filters);
-    }
-  },
-
-  // Get courses from local storage when offline
-  getOfflineCourses: (filters = {}) => {
-    try {
-      const cachedData = localStorage.getItem('cached_courses');
-      let courses = [];
-      
-      if (cachedData) {
-        try {
-          const parsedData = JSON.parse(cachedData);
-          courses = Array.isArray(parsedData) ? parsedData : SAMPLE_COURSES;
-        } catch (e) {
-          console.error('Error parsing cached courses:', e);
-          courses = SAMPLE_COURSES;
-        }
-      } else {
-        // If no cached data exists, use sample courses
-        courses = SAMPLE_COURSES;
-        
-        // Store the sample courses if nothing exists
-        safelyStoreInLocalStorage('cached_courses', courses);
-      }
-      
-      // Make a deep copy to avoid reference issues
-      courses = JSON.parse(JSON.stringify(courses));
-      
-      // Apply pending operations to local data
-      const operations = offlineService.getOfflineOperations();
-      
-      operations.forEach(op => {
-        switch (op.type) {
-          case 'add':
-            // Add a temporary ID if needed
-            if (!op.course.id) {
-              op.course.id = `temp_${new Date().getTime()}`;
-            }
-            courses.push(op.course);
-            break;
-          case 'update':
-            const updateIndex = courses.findIndex(c => c.id === op.id);
-            if (updateIndex !== -1) {
-              courses[updateIndex] = { ...courses[updateIndex], ...op.course };
-            }
-            break;
-          case 'delete':
-            courses = courses.filter(c => c.id !== op.id);
-            break;
-          default:
-            console.log(`Unknown operation type: ${op.type}`);
-            break;
-        }
-      });
-      
-      // Apply filters in the same way the server would
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        courses = courses.filter(
-          course => course.title.toLowerCase().includes(searchTerm) || 
-                   (course.instructor && course.instructor.toLowerCase().includes(searchTerm))
-        );
-      }
-      
-      if (filters.category && filters.category !== 'All') {
-        courses = courses.filter(
-          course => course.category === filters.category
-        );
-      }
-      
-      if (filters.priceMin !== undefined) {
-        courses = courses.filter(
-          course => course.price >= parseFloat(filters.priceMin)
-        );
-      }
-      
-      if (filters.priceMax !== undefined) {
-        courses = courses.filter(
-          course => course.price <= parseFloat(filters.priceMax)
-        );
-      }
-      
-      // Apply sorting with default case
-      if (filters.sortBy) {
-        switch (filters.sortBy) {
-          case 'title':
-            courses.sort((a, b) => a.title.localeCompare(b.title));
-            break;
-          case 'price-asc':
-            courses.sort((a, b) => a.price - b.price);
-            break;
-          case 'price-desc':
-            courses.sort((a, b) => b.price - a.price);
-            break;
-          case 'rating':
-            courses.sort((a, b) => b.rating - a.rating);
-            break;
-          default:
-            // No sorting for unknown sort types
-            console.log(`Unknown sort type: ${filters.sortBy}`);
-            break;
-        }
-      }
-      
-      // If this is a full data request without pagination, return all courses
-      if (filters.fullData === true) {
-        return courses;
-      }
-      
-      // If pagination is requested, return paginated data
-      if (filters.page !== undefined || filters.limit !== undefined) {
-        const page = parseInt(filters.page) || 1;
-        const limit = parseInt(filters.limit) || 10;
-        const startIndex = (page - 1) * limit;
-        
-        // Extra safety check to ensure courses is an array before using slice
-        if (!Array.isArray(courses)) {
-          console.error("Courses is not an array:", courses);
-          courses = [];
-        }
-        
-        const endIndex = Math.min(startIndex + limit, courses.length);
-        const paginatedCourses = courses.slice(startIndex, endIndex);
-        
-        // Prepare pagination metadata
-        const pagination = {
-          page: page,
-          limit: limit,
-          totalItems: courses.length,
-          totalPages: Math.ceil(courses.length / limit)
-        };
-        
-        console.log(`Offline pagination: page ${page}/${pagination.totalPages}, showing ${paginatedCourses.length} of ${courses.length} courses`);
-        
-        return {
-          courses: paginatedCourses, 
-          pagination: pagination
-        };
-      }
-      
-      // If no pagination requested, return all filtered courses
-      return { 
-        courses,
-        pagination: {
-          page: 1,
-          limit: courses.length,
-          totalItems: courses.length,
-          totalPages: 1
-        }
-      };
-    } catch (error) {
-      console.error('Error getting offline courses:', error);
-      return { 
-        courses: SAMPLE_COURSES,
-        pagination: {
-          page: 1,
-          limit: SAMPLE_COURSES.length,
-          totalItems: SAMPLE_COURSES.length,
-          totalPages: 1
-        }
-      };
     }
   },
 
   addCourse: async (course) => {
     try {
-      // Use local storage if not using remote backend
-      if (!API_CONFIG.useRemoteBackend || !offlineService.isOnline || !offlineService.isServerAvailable) {
+      if (!API_CONFIG.useRemoteBackend) {
+        // Use local storage if not using remote backend
         console.log('Using local storage for adding course');
         
         // Get current courses from storage
@@ -407,50 +199,30 @@ export const courseService = {
         return newCourse;
       }
       
-      // Check if we're online and server is available
-      if (!offlineService.isOnline || !offlineService.isServerAvailable) {
-        console.log('Offline mode: Saving add operation for later');
-        offlineService.saveOperation({
-          type: 'add',
-          course: course
-        });
-        
-        // Generate a temporary ID for the UI to work properly
-        const tempCourse = {
-          ...course,
-          id: `temp_${new Date().getTime()}`
-        };
-        
-        // Dispatch event for UI update
-        window.dispatchEvent(new CustomEvent('courseUpdated', {
-          detail: { action: 'add', course: tempCourse }
-        }));
-        
-        return tempCourse;
-      }
-      
-      console.log('Adding course:', course);
-      const response = await fetch('/api/courses', {
+      const response = await fetch(`${API_CONFIG.baseUrl}/api/courses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(course),
+        body: JSON.stringify(course)
       });
-      
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add course');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
-      
+
       const newCourse = await response.json();
       console.log('Course added successfully:', newCourse);
+
+      // Force refresh of cached data
+      await courseService.getCourses();
       
-      // Dispatch only one event with detailed info
-      window.dispatchEvent(new CustomEvent('courseUpdated', {
-        detail: { action: 'add', course: newCourse }
+      // Dispatch a custom event to notify components
+      window.dispatchEvent(new CustomEvent('courseAdded', { 
+        detail: { course: newCourse } 
       }));
-      
+
       return newCourse;
     } catch (error) {
       console.error('Error adding course:', error);
@@ -650,5 +422,34 @@ export const courseService = {
       return true;
     }
     return false;
-  }
+  },
+
+  // Add the missing getOfflineCourses method
+  getOfflineCourses: (filters = {}) => {
+    try {
+      const cachedData = localStorage.getItem('cached_courses');
+      let courses = cachedData ? JSON.parse(cachedData) : SAMPLE_COURSES;
+
+      // Apply filters if provided
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        courses = courses.filter(course => 
+          course.title.toLowerCase().includes(searchTerm) ||
+          course.instructor.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      if (filters.category && filters.category !== 'All') {
+        courses = courses.filter(course => course.category === filters.category);
+      }
+
+      return { courses, pagination: null };
+    } catch (error) {
+      console.error('Error getting offline courses:', error);
+      return { courses: SAMPLE_COURSES, pagination: null };
+    }
+  },
 };
+
+// Services for managing courses
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';

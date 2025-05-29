@@ -82,7 +82,7 @@ function AppContent() {
     try {
       if (isSimulationRunning) {
         // Stop simulation
-        await fetch('/api/simulation/stop', { method: 'POST' });
+        await fetch('http://localhost:5000/api/simulation/stop', { method: 'POST' });
         setIsSimulationRunning(false);
         toast.info("Course simulation stopped");
         
@@ -92,7 +92,7 @@ function AppContent() {
         }));
       } else {
         // Start simulation
-        await fetch('/api/simulation/start', { method: 'POST' });
+        await fetch('http://localhost:5000/api/simulation/start', { method: 'POST' });
         setIsSimulationRunning(true);
         toast.info("Course simulation started");
         
@@ -125,7 +125,7 @@ function AppContent() {
     // Check simulation status when component mounts
     const checkSimulationStatus = async () => {
       try {
-        const response = await fetch('/api/simulation/status');
+        const response = await fetch('http://localhost:5000/api/simulation/status');
         const data = await response.json();
         setIsSimulationRunning(data.isRunning);
       } catch (error) {
@@ -139,7 +139,7 @@ function AppContent() {
     let eventSource = null;
     
     try {
-      eventSource = new EventSource('/api/courses/events');
+      eventSource = new EventSource('http://localhost:5000/api/courses/events');
       
       eventSource.addEventListener('courseUpdated', (event) => {
         const data = JSON.parse(event.data);

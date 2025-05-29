@@ -3,7 +3,7 @@
 // Constants - export RECONNECTION_INTERVAL for use elsewhere
 const STORAGE_KEY = 'offline_operations';
 const API_CHECK_ENDPOINTS = [
-  'http://localhost:5000/api/debug/courses',
+  'http://localhost:5000/api/debug/courses', // Changed from port 3000 to 5000
   '/api/debug/courses'  // Add relative path as fallback
 ];
 const CONNECTION_TIMEOUT = 2000; // 2 seconds

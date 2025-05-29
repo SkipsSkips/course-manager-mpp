@@ -21,7 +21,7 @@ const Home = ({ onEdit }) => {
   const { isSimulationRunning, toggleSimulation } = useContext(SimulationContext);
   const forceRefreshCounter = useRef(0);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
-  const [itemsPerPage, setItemsPerPage] = useState(6); // Smaller default page size (changed from 10)
+  const [itemsPerPage, setItemsPerPage] = useState(20); // Show more per page
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -52,59 +52,106 @@ const Home = ({ onEdit }) => {
     setCurrentPage(1);
   };
 
-  // Separate useEffect for handling currentPage and itemsPerPage changes
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const filters = {
-          search,
-          category: category !== 'All' ? category : undefined,
-          priceMin: priceRange.min,
-          priceMax: priceRange.max,
-          sortBy: sort,
-          page: currentPage,
-          limit: itemsPerPage,
-          forceCacheKey: forceRefreshCounter.current,
-          timestamp: Date.now()
-        };
+  // Load courses without artificial limits - let backend decide
+  const loadCourses = useCallback(async () => {
+    setLoading(true);
+    try {
+      const filters = {
+        search: search.trim() || undefined,
+        category: category === 'All' ? undefined : category,
+        sortBy: sort || undefined,
+        priceMin: priceRange.min > 0 ? priceRange.min : undefined,
+        priceMax: priceRange.max < 1000 ? priceRange.max : undefined,
+        // Remove pagination to get all courses
+        // page: currentPage,
+        // limit: itemsPerPage
+      };
 
-        const response = await courseService.getCourses(filters);
-
-        if (response && response.courses && Array.isArray(response.courses)) {
-          console.log(`Received ${response.courses.length} courses from API:`, response.courses.map(c => c.id));
-          setCourses(response.courses);
-          
-          // Update pagination info
-          if (response.pagination) {
-            setTotalItems(response.pagination.totalItems);
-            setTotalPages(response.pagination.totalPages);
-            console.log(`Setting total pages: ${response.pagination.totalPages}, total items: ${response.pagination.totalItems}`);
-          } else {
-            // If no pagination info, assume all courses are returned
-            setTotalItems(response.courses.length);
-            setTotalPages(Math.ceil(response.courses.length / itemsPerPage));
-          }
-        } else {
-          console.error("Invalid data format returned:", response);
-          toast.error("Error: Invalid data returned from server");
-          setCourses([]);
-          setTotalItems(0);
-          setTotalPages(1);
-        }
-      } catch (error) {
-        console.error('Error fetching courses:', error);
-        toast.error(`Failed to load courses: ${error.message}`);
-        setCourses([]);
-        setTotalItems(0);
-        setTotalPages(1);
-      } finally {
-        setLoading(false);
+      console.log('🔄 Loading courses with filters:', filters);
+      const response = await courseService.getCourses(filters);
+      
+      if (response && response.courses) {
+        setCourses(response.courses);
+        setTotalItems(response.pagination?.totalItems || response.courses.length);
+        
+        // Calculate pagination for frontend display only
+        const totalPages = Math.ceil((response.pagination?.totalItems || response.courses.length) / itemsPerPage);
+        setTotalPages(totalPages);
+        
+        console.log('✅ Loaded courses:', {
+          total: response.courses.length,
+          totalItems: response.pagination?.totalItems,
+          categories: [...new Set(response.courses.map(c => c.category))],
+          showingPage: currentPage,
+          itemsPerPage
+        });
       }
+    } catch (error) {
+      console.error('❌ Error loading courses:', error);
+      toast.error('Failed to fetch courses. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [search, category, sort, priceRange.min, priceRange.max, itemsPerPage, currentPage]);
+
+  // Initial load and filter changes
+  useEffect(() => {
+    loadCourses();
+  }, [search, category, sort, priceRange.min, priceRange.max, forceRefreshCounter.current]);
+
+  // Set up Server-Sent Events for live updates
+  useEffect(() => {
+    const connectToSSE = () => {
+      const eventSource = new EventSource('http://localhost:5000/api/courses/events');
+      
+      eventSource.onopen = () => {
+        console.log('🔗 Connected to course update stream');
+        setIsReconnecting(false);
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.connected) {
+            console.log('✅ SSE connection confirmed');
+            return;
+          }
+          
+          if (data.action) {
+            console.log('🔔 Received live update:', data);
+            // Refresh courses when we get updates
+            loadCourses();
+            
+            // Show notification
+            if (data.message) {
+              toast.info(data.message);
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing SSE data:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('❌ SSE connection error:', error);
+        eventSource.close();
+        setIsReconnecting(true);
+        
+        // Reconnect after 5 seconds
+        setTimeout(connectToSSE, 5000);
+      };
+
+      return eventSource;
     };
 
-    fetchData();
-  }, [currentPage, itemsPerPage, search, category, sort, priceRange.min, priceRange.max, forceRefreshCounter.current]); // Added forceRefreshCounter.current to dependencies
+    const eventSource = connectToSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [loadCourses]);
 
   useEffect(() => {
     const handleCourseUpdate = (e) => {
@@ -221,7 +268,10 @@ const Home = ({ onEdit }) => {
 
   const filteredCourses = courses;
 
-  const currentCourses = courses;
+  // Apply frontend pagination to the loaded courses
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentCourses = courses.slice(startIndex, endIndex);
 
   const MemoizedSidebar = useMemo(() => (
     <Sidebar 
@@ -233,12 +283,16 @@ const Home = ({ onEdit }) => {
     />
   ), [handleSearch, handleFilter, handleSort, handlePriceRangeChange, category]);
 
-  if (loading) return (
-    <div className="flex justify-center items-center h-screen">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600"></div>
-      <span className="ml-4 text-xl font-semibold text-gray-700">Loading courses...</span>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600">Loading all courses...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">

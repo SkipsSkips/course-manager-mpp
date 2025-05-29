@@ -1,0 +1,4 @@
+for i in {1..50}; do
+  curl -X POST http://localhost:5000/api/courses -H "Content-Type: application/json" -d '{"title":"Test Course","category":"Programming","lessons":10,"price":49.99}'
+  sleep 0.2
+done

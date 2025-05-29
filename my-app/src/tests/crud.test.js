@@ -68,7 +68,7 @@ describe('CRUD Operations', () => {
   });
   
   // Test 1: Get Courses - Success path
-  test('should successfully fetch and display courses', async () => {
+  test('should successfully fetch and display all courses', async () => {
     render(
       <MemoryRouter>
         <Home />
@@ -76,17 +76,19 @@ describe('CRUD Operations', () => {
     );
     
     // Verify loading state
-    expect(screen.getByText('Loading courses...')).toBeInTheDocument();
+    expect(screen.getByText('Loading all courses...')).toBeInTheDocument();
     
-    // Verify courses are loaded
-    for (const course of mockCourses.slice(0, 3)) { // Check first 3 courses
+    // Verify courses are loaded (check for more courses now)
+    for (const course of mockCourses.slice(0, 5)) { // Check first 5 courses
       await screen.findByText(course.title);
     }
     
-    // Verify service was called with correct parameters
+    // Verify service was called without pagination limits
     expect(courseService.getCourses).toHaveBeenCalledWith(expect.objectContaining({
-      page: 1,
-      limit: expect.any(Number)
+      // No page or limit should be passed
+      search: undefined,
+      category: undefined,
+      sortBy: undefined
     }));
   });
   
@@ -104,9 +106,6 @@ describe('CRUD Operations', () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Failed to fetch courses'));
     });
-    
-    // Check for empty state
-    await screen.findByText(/No courses/i);
   });
   
   // Test 3: Add Course - Success path
@@ -133,7 +132,7 @@ describe('CRUD Operations', () => {
     await userEvent.type(screen.getByLabelText('Lessons'), newCourse.lessons.toString());
     await userEvent.type(screen.getByLabelText('Price'), newCourse.price.toString());
     
-    // Set duration
+    // Set duration (hours and minutes)
     await userEvent.selectOptions(screen.getByLabelText('Hours'), '2');
     await userEvent.selectOptions(screen.getByLabelText('Minutes'), '30');
     

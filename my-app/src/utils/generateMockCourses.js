@@ -1,8 +1,9 @@
 import { faker } from '@faker-js/faker';
-import { defaultImageBase64 } from './defaultImage';
+
+const categories = ['Programming', 'Design', 'Marketing', 'Data Science', 'Photography', 'Health & Fitness', 'Music'];
+const defaultImageBase64 = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzNzNkYyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE2IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNvdXJzZTwvdGV4dD4KPC9zdmc+';
 
 export const generateMockCourses = (count) => {
-  const categories = ['Programming', 'Design', 'Music', 'Marketing', 'Business'];
   const courses = [];
 
   for (let i = 0; i < count; i++) {

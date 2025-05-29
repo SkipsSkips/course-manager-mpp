@@ -65,11 +65,18 @@ const AddCourse = ({ onAdd, initialData }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Calculate duration from hours and minutes
+    const hours = parseInt(formData.hours) || 0;
+    const minutes = parseInt(formData.minutes) || 0;
+    const duration = `${hours}h ${minutes}m`;
+    
     const course = {
       title: formData.title,
       category: formData.category,
       lessons: parseInt(formData.lessons),
       price: parseFloat(formData.price),
+      duration: duration,
       image: formData.image || null
     };
 
@@ -82,15 +89,23 @@ const AddCourse = ({ onAdd, initialData }) => {
         toast.success('Course added successfully!');
         console.log('Added course:', newCourse);
       }
-      onAdd();
       
-      // Use React Router navigation instead of hard page reload
+      // Call onAdd callback if provided
+      if (onAdd) {
+        onAdd();
+      }
+      
+      // Navigate back to home
       navigate('/');
       
-      // Force a refresh of course data when returning to the home page
+      // Force multiple update events to ensure state refresh
       setTimeout(() => {
         window.dispatchEvent(new Event('courseUpdated'));
+        window.dispatchEvent(new CustomEvent('courseAdded', { 
+          detail: { action: initialData ? 'update' : 'add' } 
+        }));
       }, 100);
+      
     } catch (error) {
       toast.error(`Failed to save: ${error.message}`);
       console.error('Error saving course:', error);

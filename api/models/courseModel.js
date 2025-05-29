@@ -1,4 +1,4 @@
-// In-memory course repository
+// In-memory course repository (fallback when database is not available)
 const { defaultImageBase64 } = require('../utils/defaultImage');
 
 const coursesData = {
@@ -1207,5 +1207,5 @@ const coursesData = {
   ]
 };
 
-// Export the data
+// Export the data for backward compatibility
 module.exports = { coursesData };

@@ -23,7 +23,7 @@ const ConnectionStatus = () => {
       }
     });
     
-    // Monitor pending operations
+    // Monitor pending operations and listen for sync events
     const checkPendingOps = () => {
       const ops = offlineService.getOfflineOperations();
       setPendingOperations(ops.length);
@@ -32,10 +32,19 @@ const ConnectionStatus = () => {
     checkPendingOps();
     const interval = setInterval(checkPendingOps, 2000);
     
+    // Listen for sync completion and course updates to refresh pending count
+    const handleSyncComplete = () => checkPendingOps();
+    const handleCourseUpdated = () => checkPendingOps();
+
+    window.addEventListener('syncOperationsComplete', handleSyncComplete);
+    window.addEventListener('courseUpdated', handleCourseUpdated);
+
     // Clean up
     return () => {
       unsubscribe();
       clearInterval(interval);
+      window.removeEventListener('syncOperationsComplete', handleSyncComplete);
+      window.removeEventListener('courseUpdated', handleCourseUpdated);
     };
   }, []);
   

@@ -160,9 +160,9 @@ describe('Filter and Search Operations', () => {
         }
       }
       
-      // Apply pagination
+      // Apply pagination only if explicitly requested
       const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 6;
+      const limit = parseInt(filters.limit) || filteredCourses.length; // Return all if no limit specified
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
       

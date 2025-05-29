@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
@@ -29,6 +28,13 @@ The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+
+### API Server
+
+The backend API server runs on port 5000. Make sure to start both servers:
+
+1. Frontend: `npm start` (runs on port 3000)
+2. Backend: `npm run dev` (runs on port 5000)
 
 ### `npm run eject`
 
@@ -69,7 +75,3 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-=======
-# course-manager-mpp
-MPP - Project
->>>>>>> f720953fb3de98c6f717dea1305af95d8b564425

@@ -183,7 +183,7 @@ describe('Edge Cases and Error Handling', () => {
     await userEvent.type(screen.getByLabelText('Lessons'), '10');
     await userEvent.type(screen.getByLabelText('Price'), '49.99');
     
-    // Set duration
+    // Set duration (hours and minutes)
     await userEvent.selectOptions(screen.getByLabelText('Hours'), '2');
     await userEvent.selectOptions(screen.getByLabelText('Minutes'), '30');
     
