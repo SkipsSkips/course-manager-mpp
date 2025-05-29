@@ -29,10 +29,8 @@ const safelyStoreInLocalStorage = (key, data) => {
 
 // Configuration for API connection
 const API_CONFIG = {
-  // Set to true to use the backend, false to use local data
-  useRemoteBackend: true, // Changed to true to use backend by default
-  // Default backend URL (localhost for development)
-  baseUrl: 'http://localhost:5000',
+  useRemoteBackend: true,
+  baseUrl: process.env.REACT_APP_API_URL || 'http://localhost:5000',
 };
 
 // Sample data to use when working locally
